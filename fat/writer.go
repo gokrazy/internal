@@ -98,7 +98,7 @@ func (c *common) FirstCluster() uint16 {
 func (c *common) Time() uint16 {
 	return uint16(c.modTime.Hour())<<11 |
 		uint16(c.modTime.Minute())<<5 |
-		uint16(c.modTime.Second()*2)
+		uint16(c.modTime.Second()/2)
 }
 
 func (c *common) Date() uint16 {
