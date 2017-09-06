@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 )
 
 // Reader is a minimalistic FAT16B reader, which only aims to be
@@ -145,4 +146,81 @@ func (r *Reader) Extents(path string) (offset int64, length int64, err error) {
 	}
 
 	return 0, 0, fmt.Errorf("%q not found", path)
+}
+
+func unmarshalTimeDate(t, d uint16) time.Time {
+	year := (d >> 9) & 0x7F
+	month := (d >> 5) & 0x0F
+	day := d & 0x1F
+
+	hour := (t >> 11) & 0x1F
+	minute := (t >> 5) & 0x3F
+	second := t & 0x1F
+
+	return time.Date(1980+int(year), time.Month(month), int(day), int(hour), int(minute), int(second)*2, 0, time.UTC)
+}
+
+// ModTime returns the modification time of the file identified by path.
+//
+// TODO: implement support for subdirectories
+func (r *Reader) ModTime(path string) (time.Time, error) {
+	dirOffset := int64((r.reservedSectors + r.fatSectors)) * int64(r.sectorSize)
+
+	numDirEntries := int(r.rootDirEntries)
+
+	components := strings.Split(path[1:], "/")
+	for _, component := range components {
+		for i := 0; i < numDirEntries; i++ {
+			if _, err := r.r.Seek(dirOffset+int64(i*32), io.SeekStart); err != nil {
+				return time.Time{}, err
+			}
+
+			var entry dirEntry
+
+			if _, err := r.r.Read(entry.name[:]); err != nil {
+				return time.Time{}, err
+			}
+
+			// unused slot
+			if entry.name[0] == 0 {
+				continue
+			}
+
+			if _, err := r.r.Read(entry.ext[:]); err != nil {
+				return time.Time{}, err
+			}
+
+			var name string
+			if idx := bytes.IndexByte(entry.name[:], ' '); idx > -1 {
+				name = string(entry.name[:idx])
+			} else {
+				name = string(entry.name[:])
+			}
+			if entry.ext[0] != ' ' {
+				name += "." + string(entry.ext[:])
+			}
+
+			if name != component {
+				continue
+			}
+
+			if _, err := r.r.Seek(dirOffset+int64(i*32+22), io.SeekStart); err != nil {
+				return time.Time{}, err
+			}
+
+			var t, d uint16
+
+			if err := binary.Read(r.r, binary.LittleEndian, &t); err != nil {
+				return time.Time{}, err
+			}
+
+			if err := binary.Read(r.r, binary.LittleEndian, &d); err != nil {
+				return time.Time{}, err
+			}
+
+			return unmarshalTimeDate(t, d), nil
+		}
+	}
+
+	return time.Time{}, fmt.Errorf("%q not found", path)
 }
