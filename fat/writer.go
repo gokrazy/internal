@@ -208,7 +208,7 @@ func (fw *Writer) Mkdir(path string, modTime time.Time) error {
 		fw.pending = nil
 	}
 	d, err := fw.dir(path)
-	d.common.modTime = modTime
+	d.common.modTime = modTime.UTC()
 	return err
 }
 
@@ -259,7 +259,7 @@ func (fw *Writer) File(path string, modTime time.Time) (io.Writer, error) {
 		common: common{
 			name:         parts[0],
 			ext:          parts[1],
-			modTime:      modTime,
+			modTime:      modTime.UTC(),
 			firstCluster: fw.currentCluster()}}
 	dir.entries = append(dir.entries, f)
 	dir.byName[filename] = f
