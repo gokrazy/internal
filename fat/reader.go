@@ -125,7 +125,14 @@ func (r *Reader) Extents(path string) (offset int64, length int64, err error) {
 				name += "." + string(entry.ext[:])
 			}
 
-			if name != component {
+			// TODO: read long file names entries instead (with fallback for older installations)
+			primary, ext := shortFileName(component, make(map[string]bool))
+			shortName := strings.TrimSpace(primary)
+			if ext != "" {
+				shortName += "." + strings.TrimSpace(ext)
+			}
+			if name != shortName &&
+				name != component /* for backwards compatibility */ {
 				continue
 			}
 
@@ -200,7 +207,14 @@ func (r *Reader) ModTime(path string) (time.Time, error) {
 				name += "." + string(entry.ext[:])
 			}
 
-			if name != component {
+			// TODO: read long file names entries instead (with fallback for older installations)
+			primary, ext := shortFileName(component, make(map[string]bool))
+			shortName := strings.TrimSpace(primary)
+			if ext != "" {
+				shortName += "." + strings.TrimSpace(ext)
+			}
+			if name != shortName &&
+				name != component /* for backwards compatibility */ {
 				continue
 			}
 

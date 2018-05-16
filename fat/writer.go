@@ -1,14 +1,17 @@
 package fat
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
+	"unicode/utf16"
 )
 
 const (
@@ -56,6 +59,7 @@ func (pw *paddingWriter) Flush() error {
 type entry interface {
 	Name() [8]byte
 	Ext() [3]byte
+	FullName() string
 	Attr() uint8
 	Size() uint32
 	FirstCluster() uint16
@@ -72,6 +76,13 @@ type common struct {
 }
 
 var empty = [8]byte{' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '}
+
+func (c *common) FullName() string {
+	if len(c.ext) > 0 {
+		return c.name + "." + c.ext
+	}
+	return c.name
+}
 
 func (c *common) Name() [8]byte {
 	var result [8]byte
@@ -106,6 +117,16 @@ func (c *common) Date() uint16 {
 		uint16(c.modTime.Month())<<5 |
 		uint16(c.modTime.Day())
 }
+
+const (
+	attrReadOnly  = 0x01
+	attrHidden    = 0x02
+	attrSystem    = 0x04
+	attrVolumeId  = 0x08
+	attrDirectory = 0x10
+	attrArchive   = 0x20
+	attrLongName  = attrReadOnly | attrHidden | attrSystem | attrVolumeId
+)
 
 type file struct {
 	common
@@ -291,9 +312,25 @@ func (fw *Writer) writeFAT() error {
 	return w.Flush()
 }
 
+func dirEntryCount(d *directory) int {
+	count := 0
+	for _, e := range d.entries {
+		count++                                // short file name entry
+		count += (len(e.FullName()) + 12) / 13 // long file name entries
+	}
+	return count
+}
+
 func (fw *Writer) writeBootSector(w io.Writer, fatSectors, reservedSectors int) error {
 	dataSectors := len(fw.fat) * int(sectorsPerCluster)
-	rootDirSectors := 1 // TODO
+	rootDirEntries := dirEntryCount(fw.root)
+	// The root directory must span an integral number of sectors:
+	const (
+		dirEntrySize     = 32 // bytes
+		entriesPerSector = (int(sectorSize) / dirEntrySize)
+	)
+	rootDirSectors := ((rootDirEntries + entriesPerSector - 1) / entriesPerSector)
+	rootDirEntries = rootDirSectors * entriesPerSector
 	totalSectors := reservedSectors + rootDirSectors + fatSectors + dataSectors
 	var (
 		jumpCode            = [3]byte{0xEB, 0x3C, 0x90}
@@ -310,7 +347,7 @@ func (fw *Writer) writeBootSector(w io.Writer, fatSectors, reservedSectors int) 
 		sectorsPerCluster,       // i.e. each FAT entry covers sectorsPerCluster*sectorSize bytes
 		uint16(reservedSectors), // reserved sectors
 		uint8(1),                // one copy of the FAT
-		uint16(16),              // root directory entries, rounded up to entire blocks (max 16 per block) TODO
+		uint16(rootDirEntries),  // root directory entries
 		uint16(0),               // 0 = use uint32 number of sectors following later
 		hardDisk,                // media descriptor
 		uint16(fatSectors),      // number of sectors per FAT
@@ -334,6 +371,64 @@ func (fw *Writer) writeBootSector(w io.Writer, fatSectors, reservedSectors int) 
 	return nil
 }
 
+func shortFileName(name string, seen map[string]bool) (primary, ext string) {
+	return shortFileNameBoth(strings.ToUpper(name), seen)
+}
+
+func shortFileNameWrite(name string, seen map[string]bool) (primary, ext string) {
+	// TODO(correctness): convert to upper-case. cannot do this right away for
+	// backwards compatibility: older gokrazy FAT readers only look for
+	// lower-case filenames.
+	return shortFileNameBoth(name, seen)
+}
+
+func shortFileNameBoth(name string, seen map[string]bool) (primary, ext string) {
+	basis := name
+	// TODO(correctness): convert to OEM charset
+	basis = strings.Replace(basis, " ", "", -1)
+	for strings.HasPrefix(basis, ".") {
+		basis = strings.TrimPrefix(basis, ".")
+	}
+	fit := true
+	primary = basis
+	if idx := strings.LastIndex(primary, "."); idx > -1 {
+		primary = primary[:idx]
+	}
+	if len(primary) > 8 {
+		primary = primary[:8]
+		fit = false
+	}
+	if len(primary) < 8 {
+		primary = primary + strings.Repeat(" ", 8-len(primary))
+	}
+	ext = basis
+	if idx := strings.LastIndex(ext, "."); idx > -1 {
+		ext = ext[idx+1:]
+		if len(ext) > 3 {
+			ext = ext[:3]
+			fit = false
+		}
+		if len(ext) < 3 {
+			ext = ext + strings.Repeat(" ", 3-len(ext))
+		}
+	} else {
+		ext = "   "
+	}
+	if !fit {
+		// Generate numeric tail
+		for n := 1; n <= 999999; n++ {
+			tail := "~" + strconv.Itoa(n)
+			suggestion := primary[:len(primary)-len(tail)] + tail
+			if !seen[suggestion] {
+				primary = suggestion
+				seen[primary] = true
+				break
+			}
+		}
+	}
+	return primary, ext
+}
+
 func (fw *Writer) writeDirEntries(w io.Writer, d *directory) error {
 	allEntries := d.entries
 	// For non-root directories, add dot and dotdot
@@ -355,10 +450,54 @@ func (fw *Writer) writeDirEntries(w io.Writer, d *directory) error {
 			},
 		}, allEntries...)
 	}
+	seen := make(map[string]bool)
 	for _, entry := range allEntries {
+		// Long Directory Entry
+		name := entry.FullName()
+		chunks := (len(name) + 12) / 13                    // rounded up to 13 bytes
+		buf := bytes.Repeat([]byte{0xFF, 0xFF}, chunks*13) // padded with 0xFFFF
+		padded := []rune(name)
+		if len(name)%13 != 0 {
+			padded = append([]rune(name), 0)
+		}
+		for i, enc := range utf16.Encode(padded) {
+			binary.LittleEndian.PutUint16(buf[i*2:], enc)
+		}
+		primary, ext := shortFileNameWrite(name, seen)
+		checksum := uint8(0)
+		for _, ch := range []byte(primary + ext) {
+			checksum = (((checksum & 1) << 7) | ((checksum & 0xFE) >> 1)) + ch
+		}
+		for i := chunks - 1; i >= 0; i-- {
+			order := byte(i + 1) // 1-based
+			if i == chunks-1 {
+				order |= 0x40 // LAST_LONG_ENTRY
+			}
+			namebuf := buf[i*13*2:]
+			for _, v := range []interface{}{
+				order,               // order in the sequence of long dir entries
+				namebuf[0 : 0+10],   // characters 1-5
+				byte(attrLongName),  // always attrLongName
+				byte(0),             // always 0 (reserved)
+				checksum,            // checksum over the corresponding short directory entry
+				namebuf[10 : 10+12], // characters 6-11
+				uint16(0),           // always 0 (older tools may interpret this as first cluster)
+				namebuf[22 : 22+4],  // characters 12-13
+			} {
+				if err := binary.Write(w, binary.LittleEndian, v); err != nil {
+					return err
+				}
+			}
+		}
+
+		// Short directory entry
+		var primaryb [8]byte
+		copy(primaryb[:], []byte(primary))
+		var extb [3]byte
+		copy(extb[:], []byte(ext))
 		for _, v := range []interface{}{
-			entry.Name(),
-			entry.Ext(),
+			primaryb,
+			extb,
 			entry.Attr(),
 			[10]byte{}, // reserved
 			entry.Time(),
