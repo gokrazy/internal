@@ -383,6 +383,9 @@ func shortFileNameWrite(name string, seen map[string]bool) (primary, ext string)
 }
 
 func shortFileNameBoth(name string, seen map[string]bool) (primary, ext string) {
+	if name == "." || name == ".." {
+		return name + strings.Repeat(" ", 8-len(name)), "   "
+	}
 	basis := name
 	// TODO(correctness): convert to OEM charset
 	basis = strings.Replace(basis, " ", "", -1)
