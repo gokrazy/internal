@@ -387,7 +387,7 @@ func (d *Directory) Flush() error {
 	}
 
 	dirBufStartBlock := d.w.dirBuf.Len() / metadataBlockSize
-	dirBufOffset := d.w.dirBuf.Len() - dirBufStartBlock*metadataBlockSize
+	dirBufOffset := d.w.dirBuf.Len()
 
 	currentBlock := int64(-1)
 	currentInodeOffset := int64(-1)
@@ -439,7 +439,7 @@ func (d *Directory) Flush() error {
 		StartBlock:  uint32(dirBufStartBlock * (metadataBlockSize + 2)),
 		Nlink:       uint32(subdirs + 2 - 1), // + 2 for . and ..
 		FileSize:    uint16(d.w.dirBuf.Len()-dirBufOffset) + 3,
-		Offset:      uint16(dirBufOffset),
+		Offset:      uint16(dirBufOffset - dirBufStartBlock*metadataBlockSize),
 		ParentInode: d.w.sb.Inodes + 2, // invalid
 	}); err != nil {
 		return err
