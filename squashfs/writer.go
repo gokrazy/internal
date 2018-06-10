@@ -513,10 +513,24 @@ func (f *file) writeBlock() error {
 	if err := f.zlibWriter.Close(); err != nil {
 		return err
 	}
-	f.blocksizes = append(f.blocksizes, uint32(f.compBuf.Len()))
-	if _, err := io.Copy(f.w.w, f.compBuf); err != nil {
-		return err
+
+	size := f.compBuf.Len()
+	if size > len(block) {
+		// Copy uncompressed data: Linux returns i/o errors when it encounters a
+		// compressed block which is larger than the uncompressed data:
+		// https://github.com/torvalds/linux/blob/3ca24ce9ff764bc27bceb9b2fd8ece74846c3fd3/fs/squashfs/block.c#L150
+		size = len(block) | (1 << 24) // SQUASHFS_COMPRESSED_BIT_BLOCK
+		if _, err := f.w.w.Write(block); err != nil {
+			return err
+		}
+	} else {
+		if _, err := io.Copy(f.w.w, f.compBuf); err != nil {
+			return err
+		}
 	}
+
+	f.blocksizes = append(f.blocksizes, uint32(size))
+
 	// Keep the rest in f.buf for the next write
 	copy(b, rest)
 	f.buf.Truncate(len(rest))
