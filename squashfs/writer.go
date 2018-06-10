@@ -486,7 +486,7 @@ func (f *file) Write(p []byte) (n int, err error) {
 	if n > 0 {
 		// Keep track of the uncompressed file size.
 		f.size += uint32(n)
-		if f.buf.Len() >= dataBlockSize {
+		for f.buf.Len() >= dataBlockSize {
 			if err := f.writeBlock(); err != nil {
 				return 0, err
 			}
@@ -525,7 +525,7 @@ func (f *file) writeBlock() error {
 
 // Close implements io.Closer
 func (f *file) Close() error {
-	if f.buf.Len() > 0 {
+	for f.buf.Len() > 0 {
 		if err := f.writeBlock(); err != nil {
 			return err
 		}
