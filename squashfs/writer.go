@@ -399,7 +399,7 @@ func (d *Directory) Flush() error {
 		if int64(de.startBlock) != currentBlock {
 			dh := dirHeader{
 				Count:       countByStartBlock[de.startBlock] - 1,
-				StartBlock:  de.startBlock,
+				StartBlock:  de.startBlock * (metadataBlockSize + 2),
 				InodeOffset: de.inodeNumber,
 			}
 			if err := binary.Write(&d.w.dirBuf, binary.LittleEndian, &dh); err != nil {
@@ -436,7 +436,7 @@ func (d *Directory) Flush() error {
 			Mtime:       int32(d.modTime.Unix()),
 			InodeNumber: d.w.sb.Inodes + 1,
 		},
-		StartBlock:  uint32(dirBufStartBlock),
+		StartBlock:  uint32(dirBufStartBlock * (metadataBlockSize + 2)),
 		Nlink:       uint32(subdirs + 2 - 1), // + 2 for . and ..
 		FileSize:    uint16(d.w.dirBuf.Len()-dirBufOffset) + 3,
 		Offset:      uint16(dirBufOffset),
@@ -472,7 +472,7 @@ func (d *Directory) Flush() error {
 			name:        d.name,
 		})
 	} else { // root
-		d.w.sb.RootInode = inode(startBlock<<16 | offset)
+		d.w.sb.RootInode = inode((startBlock*(metadataBlockSize+2))<<16 | offset)
 	}
 
 	d.w.sb.Inodes++
