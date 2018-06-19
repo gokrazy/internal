@@ -424,6 +424,7 @@ func (d *Directory) Flush() error {
 
 	startBlock := d.w.inodeBuf.Len() / metadataBlockSize
 	offset := d.w.inodeBuf.Len() - startBlock*metadataBlockSize
+	inodeBufOffset := d.w.inodeBuf.Len()
 
 	if err := binary.Write(&d.w.inodeBuf, binary.LittleEndian, dirInodeHeader{
 		inodeHeader: inodeHeader{
@@ -463,7 +464,7 @@ func (d *Directory) Flush() error {
 		if parentPath == "." {
 			parentPath = ""
 		}
-		d.w.writeInodeNumTo[parentPath] = append(d.w.writeInodeNumTo[parentPath], int64(offset)+parentInodeOffset)
+		d.w.writeInodeNumTo[parentPath] = append(d.w.writeInodeNumTo[parentPath], int64(inodeBufOffset)+parentInodeOffset)
 		d.parent.dirEntries = append(d.parent.dirEntries, fullDirEntry{
 			startBlock:  uint32(startBlock),
 			offset:      uint16(offset),
