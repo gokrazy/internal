@@ -35,6 +35,7 @@ const (
 
 const (
 	invalidFragment = 0xFFFFFFFF
+	invalidXattr    = 0xFFFFFFFF
 )
 
 type superblock struct {
@@ -135,6 +136,19 @@ type dirInodeHeader struct {
 	FileSize    uint16
 	Offset      uint16
 	ParentInode uint32
+}
+
+// ldirType
+type ldirInodeHeader struct {
+	inodeHeader
+
+	Nlink       uint32
+	FileSize    uint32
+	StartBlock  uint32
+	ParentInode uint32
+	Icount      uint16
+	Offset      uint16
+	Xattr       uint32
 }
 
 type dirHeader struct {
@@ -426,24 +440,56 @@ func (d *Directory) Flush() error {
 	offset := d.w.inodeBuf.Len() - startBlock*metadataBlockSize
 	inodeBufOffset := d.w.inodeBuf.Len()
 
-	if err := binary.Write(&d.w.inodeBuf, binary.LittleEndian, dirInodeHeader{
-		inodeHeader: inodeHeader{
-			InodeType: dirType,
-			Mode: unix.S_IRUSR | unix.S_IXUSR |
-				unix.S_IRGRP | unix.S_IXGRP |
-				unix.S_IROTH | unix.S_IXOTH,
-			Uid:         0,
-			Gid:         0,
-			Mtime:       int32(d.modTime.Unix()),
-			InodeNumber: d.w.sb.Inodes + 1,
-		},
-		StartBlock:  uint32(dirBufStartBlock * (metadataBlockSize + 2)),
-		Nlink:       uint32(subdirs + 2 - 1), // + 2 for . and ..
-		FileSize:    uint16(d.w.dirBuf.Len()-dirBufOffset) + 3,
-		Offset:      uint16(dirBufOffset - dirBufStartBlock*metadataBlockSize),
-		ParentInode: d.w.sb.Inodes + 2, // invalid
-	}); err != nil {
-		return err
+	// parentInodeOffset is the offset (in bytes) of the ParentInode field
+	// within a dirInodeHeader or ldirInodeHeader
+	var parentInodeOffset int64
+
+	if len(d.dirEntries) > 256 ||
+		d.w.dirBuf.Len()-dirBufOffset > metadataBlockSize {
+		parentInodeOffset = (2 + 2 + 2 + 2 + 4 + 4) + 4 + 4 + 4
+		if err := binary.Write(&d.w.inodeBuf, binary.LittleEndian, ldirInodeHeader{
+			inodeHeader: inodeHeader{
+				InodeType: ldirType,
+				Mode: unix.S_IRUSR | unix.S_IXUSR |
+					unix.S_IRGRP | unix.S_IXGRP |
+					unix.S_IROTH | unix.S_IXOTH,
+				Uid:         0,
+				Gid:         0,
+				Mtime:       int32(d.modTime.Unix()),
+				InodeNumber: d.w.sb.Inodes + 1,
+			},
+
+			Nlink:       uint32(subdirs + 2 - 1), // + 2 for . and ..
+			FileSize:    uint32(d.w.dirBuf.Len()-dirBufOffset) + 3,
+			StartBlock:  uint32(dirBufStartBlock * (metadataBlockSize + 2)),
+			ParentInode: d.w.sb.Inodes + 2, // invalid
+			Icount:      0,                 // no directory index
+			Offset:      uint16(dirBufOffset - dirBufStartBlock*metadataBlockSize),
+			Xattr:       invalidXattr,
+		}); err != nil {
+			return err
+		}
+	} else {
+		parentInodeOffset = (2 + 2 + 2 + 2 + 4 + 4) + 4 + 4 + 2 + 2
+		if err := binary.Write(&d.w.inodeBuf, binary.LittleEndian, dirInodeHeader{
+			inodeHeader: inodeHeader{
+				InodeType: dirType,
+				Mode: unix.S_IRUSR | unix.S_IXUSR |
+					unix.S_IRGRP | unix.S_IXGRP |
+					unix.S_IROTH | unix.S_IXOTH,
+				Uid:         0,
+				Gid:         0,
+				Mtime:       int32(d.modTime.Unix()),
+				InodeNumber: d.w.sb.Inodes + 1,
+			},
+			StartBlock:  uint32(dirBufStartBlock * (metadataBlockSize + 2)),
+			Nlink:       uint32(subdirs + 2 - 1), // + 2 for . and ..
+			FileSize:    uint16(d.w.dirBuf.Len()-dirBufOffset) + 3,
+			Offset:      uint16(dirBufOffset - dirBufStartBlock*metadataBlockSize),
+			ParentInode: d.w.sb.Inodes + 2, // invalid
+		}); err != nil {
+			return err
+		}
 	}
 
 	path := d.path()
@@ -455,11 +501,6 @@ func (d *Directory) Flush() error {
 	}
 
 	if d.parent != nil {
-		const (
-			// parentInodeOffset is the offset (in bytes) of the ParentInode
-			// field within a dirInodeHeader
-			parentInodeOffset = 2 + 2 + 2 + 2 + 4 + 4 + 4 + 4 + 2 + 2
-		)
 		parentPath := filepath.Dir(d.path())
 		if parentPath == "." {
 			parentPath = ""
