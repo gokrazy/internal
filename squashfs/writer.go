@@ -345,6 +345,13 @@ func (d *Directory) File(name string, modTime time.Time, mode os.FileMode) (io.W
 		return nil, err
 	}
 
+	// zlib.BestSpeed results in only a 2x slow-down over no compression
+	// (compared to >4x slow-down with DefaultCompression), but generates
+	// results which are in the same ball park (10% larger).
+	zw, err := zlib.NewWriterLevel(nil, zlib.BestSpeed)
+	if err != nil {
+		return nil, err
+	}
 	return &file{
 		w:          d.w,
 		d:          d,
@@ -353,7 +360,7 @@ func (d *Directory) File(name string, modTime time.Time, mode os.FileMode) (io.W
 		modTime:    modTime,
 		mode:       mode,
 		compBuf:    bytes.NewBuffer(make([]byte, dataBlockSize)),
-		zlibWriter: zlib.NewWriter(nil),
+		zlibWriter: zw,
 	}, nil
 }
 
