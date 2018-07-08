@@ -3,8 +3,8 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
+	"go/format"
 	"io/ioutil"
 	"log"
 	"os"
@@ -12,14 +12,18 @@ import (
 )
 
 func main() {
-	var buf bytes.Buffer
 	nasm := exec.Command("nasm", "bootloader.asm", "-o", "/dev/stdout")
-	nasm.Stdout = &buf
 	nasm.Stderr = os.Stderr
-	if err := nasm.Run(); err != nil {
+	b, err := nasm.Output()
+	if err != nil {
 		log.Fatalf("%v: %v", nasm.Args, err)
 	}
-	if err := ioutil.WriteFile("GENERATED_mbr.go", []byte(fmt.Sprintf("package mbr\nvar mbr = %#v", buf.Bytes())), 0644); err != nil {
+	b = []byte(fmt.Sprintf("package mbr\nvar mbr = %#v", b))
+	b, err = format.Source(b)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := ioutil.WriteFile("GENERATED_mbr.go", b, 0644); err != nil {
 		log.Fatalf("WriteFile: %v", err)
 	}
 }
