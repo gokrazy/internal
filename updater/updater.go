@@ -61,6 +61,10 @@ func UpdateBoot(baseUrl string, r io.Reader) error {
 	return StreamTo(baseUrl+"update/boot", r)
 }
 
+func UpdateMBR(baseUrl string, r io.Reader) error {
+	return StreamTo(baseUrl+"update/mbr", r)
+}
+
 func Switch(baseUrl string) error {
 	resp, err := http.Post(baseUrl+"update/switch", "", nil)
 	if err != nil {
