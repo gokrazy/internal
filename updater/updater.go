@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -11,6 +12,8 @@ import (
 	"net/http"
 	"time"
 )
+
+var ErrUpdateHandlerNotImplemented = errors.New("update handler not implemented")
 
 type countingWriter int64
 
@@ -38,6 +41,9 @@ func StreamTo(baseUrl string, r io.Reader) error {
 	remoteHash, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return err
+	}
+	if bytes.HasPrefix(remoteHash, []byte("<!DOCTYPE html>")) {
+		return ErrUpdateHandlerNotImplemented
 	}
 	decoded := make([]byte, hex.DecodedLen(len(remoteHash)))
 	n, err := hex.Decode(decoded, remoteHash)
