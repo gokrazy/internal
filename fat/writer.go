@@ -186,6 +186,10 @@ func NewWriter(w io.Writer) (*Writer, error) {
 		root: &directory{
 			byName: make(map[string]entry),
 		},
+		fat: []uint16{
+			(uint16(0xFF) << 8) | uint16(hardDisk), // media descriptor
+			clean,                                  // file system state
+		},
 	}, nil
 }
 
@@ -300,10 +304,7 @@ func (fw *Writer) writeFAT() error {
 		w:     fw.w,
 		padTo: int(sectorSize)}
 
-	for _, entry := range append([]uint16{
-		(uint16(0xFF) << 8) | uint16(hardDisk), // media descriptor
-		clean, // file system state
-	}, fw.fat...) {
+	for _, entry := range fw.fat {
 		if err := binary.Write(w, binary.LittleEndian, entry); err != nil {
 			return err
 		}
