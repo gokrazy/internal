@@ -20,7 +20,7 @@ const (
 
 	clusterSize = int(sectorSize) * int(sectorsPerCluster)
 
-	// unusableSectors is the number of clusters which are always unusable in a
+	// unusableClusters is the number of clusters which are always unusable in a
 	// FAT: the first two entries have special meaning (copy of the media
 	// descriptor and file system state).
 	unusableClusters = uint16(2)
@@ -194,7 +194,7 @@ func NewWriter(w io.Writer) (*Writer, error) {
 }
 
 func (fw *Writer) currentCluster() uint16 {
-	return unusableClusters + uint16(len(fw.fat))
+	return unusableClusters + uint16(len(fw.fat)-2)
 }
 
 func (fw *Writer) dir(path string) (*directory, error) {
