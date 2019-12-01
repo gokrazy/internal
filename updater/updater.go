@@ -23,7 +23,7 @@ func (cw *countingWriter) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-func StreamTo(baseUrl string, r io.Reader) error {
+func StreamTo(baseUrl string, r io.Reader, client *http.Client) error {
 	start := time.Now()
 	hash := sha256.New()
 	var cw countingWriter
@@ -31,7 +31,7 @@ func StreamTo(baseUrl string, r io.Reader) error {
 	if err != nil {
 		return err
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -60,20 +60,20 @@ func StreamTo(baseUrl string, r io.Reader) error {
 	return nil
 }
 
-func UpdateRoot(baseUrl string, r io.Reader) error {
-	return StreamTo(baseUrl+"update/root", r)
+func UpdateRoot(baseUrl string, r io.Reader, client *http.Client) error {
+	return StreamTo(baseUrl+"update/root", r, client)
 }
 
-func UpdateBoot(baseUrl string, r io.Reader) error {
-	return StreamTo(baseUrl+"update/boot", r)
+func UpdateBoot(baseUrl string, r io.Reader, client *http.Client) error {
+	return StreamTo(baseUrl+"update/boot", r, client)
 }
 
-func UpdateMBR(baseUrl string, r io.Reader) error {
-	return StreamTo(baseUrl+"update/mbr", r)
+func UpdateMBR(baseUrl string, r io.Reader, client *http.Client) error {
+	return StreamTo(baseUrl+"update/mbr", r, client)
 }
 
-func Switch(baseUrl string) error {
-	resp, err := http.Post(baseUrl+"update/switch", "", nil)
+func Switch(baseUrl string, client *http.Client) error {
+	resp, err := client.Post(baseUrl+"update/switch", "", nil)
 	if err != nil {
 		return err
 	}
@@ -84,8 +84,8 @@ func Switch(baseUrl string) error {
 	return nil
 }
 
-func Reboot(baseUrl string) error {
-	resp, err := http.Post(baseUrl+"reboot", "", nil)
+func Reboot(baseUrl string, client *http.Client) error {
+	resp, err := client.Post(baseUrl+"reboot", "", nil)
 	if err != nil {
 		return err
 	}
@@ -96,8 +96,8 @@ func Reboot(baseUrl string) error {
 	return nil
 }
 
-func TargetSupports(baseUrl, feature string) (bool, error) {
-	resp, err := http.Get(baseUrl + "update/features")
+func TargetSupports(baseUrl, feature string, client *http.Client) (bool, error) {
+	resp, err := client.Get(baseUrl + "update/features")
 	if err != nil {
 		return false, err
 	}
