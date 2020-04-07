@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -93,4 +94,31 @@ func Reboot(baseUrl string) error {
 		return fmt.Errorf("unexpected HTTP status code: got %d, want %d (body %q)", got, want, string(body))
 	}
 	return nil
+}
+
+func TargetSupports(baseUrl, feature string) (bool, error) {
+	resp, err := http.Get(baseUrl + "update/features")
+	if err != nil {
+		return false, err
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		// Target device does not support /features handler yet, so feature
+		// cannot be supported.
+		return false, nil
+	}
+	if got, want := resp.StatusCode, http.StatusOK; got != want {
+		body, _ := ioutil.ReadAll(resp.Body)
+		return false, fmt.Errorf("unexpected HTTP status code: got %d, want %d (body %q)", got, want, string(body))
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return false, err
+	}
+	supported := strings.Split(strings.TrimSpace(string(body)), ",")
+	for _, f := range supported {
+		if f == feature {
+			return true, nil
+		}
+	}
+	return false, nil
 }
