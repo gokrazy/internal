@@ -235,6 +235,6 @@ dap:
 	dd	0				; low bytes of LBA address
 	dd	0				; high bytes of LBA address
 
-error_msg	db	'err', 0		; /* FIXME: newline */
+error_msg	db	'er', 0		; /* FIXME: newline */
 current_lba	dd	8218			; initialize to first LBA address
 cmd_lba	dd	8218			; initialize to LBA address of cmdline.txt
