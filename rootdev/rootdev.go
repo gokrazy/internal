@@ -186,3 +186,13 @@ func PartitionCmdline(number int) string {
 	}
 	return dev + strconv.Itoa(number)
 }
+
+// PARTUUID returns the partition UUID of the block device from which gokrazy
+// was booted, if any (or the empty string).
+func PARTUUID() string {
+	dev, _ := findRaw()
+	if !strings.HasPrefix(dev, "PARTUUID=") {
+		return ""
+	}
+	return strings.TrimPrefix(dev, "PARTUUID=")
+}
