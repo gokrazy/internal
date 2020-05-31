@@ -76,14 +76,6 @@ func GetRemoteScheme(baseUrl *url.URL) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("probing url for https: %v", err)
 	}
-	if got, want, want2 := probeResp.StatusCode, http.StatusFound, http.StatusOK; got != want && got != want2 {
-		body, _ := ioutil.ReadAll(probeResp.Body)
-		return "", fmt.Errorf("unexpected HTTP status code: got %v (%v), want %d or %d",
-			probeResp.Status,
-			strings.TrimSpace(string(body)),
-			want,
-			want2)
-	}
 	probeLocation, err := probeResp.Location()
 	if err != nil {
 		return "", fmt.Errorf("getting probe url for https: %v", err)
