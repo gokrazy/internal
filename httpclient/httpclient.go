@@ -26,7 +26,7 @@ func GetTLSHttpClientByTLSFlag(tlsFlag *string, baseUrl *url.URL) (*http.Client,
 
 	foundMatchingCertificate := false
 	// Append user specified certificate(s)
-	if *tlsFlag != "self-signed" {
+	if *tlsFlag != "self-signed" && *tlsFlag != "" {
 		usrCert := strings.Split(*tlsFlag, ",")[0]
 		certBytes, err := ioutil.ReadFile(usrCert)
 		if err != nil {
