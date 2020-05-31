@@ -16,6 +16,9 @@ import (
 )
 
 func GetTLSHttpClientByTLSFlag(tlsFlag *string, baseUrl *url.URL) (*http.Client, bool, error) {
+	if *tlsFlag == "" {
+		return http.DefaultClient, false, nil
+	}
 	rootCAs, err := x509.SystemCertPool()
 	if err != nil {
 		log.Printf("initializing x509 system cert pool failed (%v), falling back to empty cert pool", err)
@@ -26,7 +29,7 @@ func GetTLSHttpClientByTLSFlag(tlsFlag *string, baseUrl *url.URL) (*http.Client,
 
 	foundMatchingCertificate := false
 	// Append user specified certificate(s)
-	if *tlsFlag != "self-signed" && *tlsFlag != "" {
+	if *tlsFlag != "self-signed" {
 		usrCert := strings.Split(*tlsFlag, ",")[0]
 		certBytes, err := ioutil.ReadFile(usrCert)
 		if err != nil {
