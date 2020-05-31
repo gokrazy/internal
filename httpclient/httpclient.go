@@ -78,7 +78,8 @@ func GetRemoteScheme(baseUrl *url.URL) (string, error) {
 	}
 	probeLocation, err := probeResp.Location()
 	if err != nil {
-		return "", fmt.Errorf("getting probe url for https: %v", err)
+		// remote did not upgrade us to HTTPS
+		return "http", nil
 	}
 	return probeLocation.Scheme, nil
 }
