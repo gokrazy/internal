@@ -15,16 +15,17 @@ import (
 	"github.com/gokrazy/internal/config"
 )
 
-func GetTLSHttpClientByTLSFlag(tlsFlag *string, baseUrl *url.URL) (*http.Client, bool, error) {
-	if *tlsFlag == "" {
-		return http.DefaultClient, false, nil
-	}
+func GetTLSHttpClientByTLSFlag(tlsFlag *string, tlsInsecure *bool, baseUrl *url.URL) (*http.Client, bool, error) {
 	rootCAs, err := x509.SystemCertPool()
 	if err != nil {
 		log.Printf("initializing x509 system cert pool failed (%v), falling back to empty cert pool", err)
 	}
 	if rootCAs == nil {
 		rootCAs = x509.NewCertPool()
+	}
+
+	if *tlsFlag == "" {
+		return getTLSHTTPClient(rootCAs, tlsInsecure), false, nil
 	}
 
 	foundMatchingCertificate := false
@@ -51,17 +52,36 @@ func GetTLSHttpClientByTLSFlag(tlsFlag *string, baseUrl *url.URL) (*http.Client,
 		}
 	}
 
-	return GetTLSHttpClient(rootCAs), foundMatchingCertificate, nil
+	return getTLSHTTPClient(rootCAs, tlsInsecure), foundMatchingCertificate, nil
 }
 
-func GetTLSHttpClient(trustStore *x509.CertPool) *http.Client {
+func getTLSHTTPClient(trustStore *x509.CertPool, tlsInsecure *bool) *http.Client {
 	httpTransport := http.DefaultTransport.(*http.Transport).Clone()
 	httpTransport.TLSClientConfig = &tls.Config{
-		RootCAs: trustStore,
+		RootCAs:            trustStore,
+		InsecureSkipVerify: *tlsInsecure,
 	}
 
 	return &http.Client{
 		Transport: httpTransport,
+		CheckRedirect: func(r *http.Request, via []*http.Request) error {
+			if len(via) == 0 {
+				return nil
+			}
+
+			last := via[len(via)-1]
+			if last.URL.Host != r.URL.Host {
+				// Do not send credentials to other targets
+				return nil
+			}
+			if u := last.URL.User; u != nil {
+				if pass, ok := u.Password(); ok {
+					// Carry over basic authentication across redirects:
+					r.SetBasicAuth(u.Username(), pass)
+				}
+			}
+			return nil
+		},
 	}
 }
 
