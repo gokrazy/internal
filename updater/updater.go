@@ -51,15 +51,16 @@ func (t *Target) Supports(feature string) bool {
 	return false
 }
 
-func StreamTo(baseUrl string, r io.Reader, client *http.Client) error {
+// suffix is one of boot, root, mbr, bootonly.
+func (t *Target) StreamTo(suffix string, r io.Reader) error {
 	start := time.Now()
 	hash := sha256.New()
 	var cw countingWriter
-	req, err := http.NewRequest(http.MethodPut, baseUrl, io.TeeReader(io.TeeReader(r, hash), &cw))
+	req, err := http.NewRequest(http.MethodPut, t.BaseURL+"update/"+suffix, io.TeeReader(io.TeeReader(r, hash), &cw))
 	if err != nil {
 		return err
 	}
-	resp, err := client.Do(req)
+	resp, err := t.HTTPClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -88,20 +89,8 @@ func StreamTo(baseUrl string, r io.Reader, client *http.Client) error {
 	return nil
 }
 
-func UpdateRoot(baseUrl string, r io.Reader, client *http.Client) error {
-	return StreamTo(baseUrl+"update/root", r, client)
-}
-
-func UpdateBoot(baseUrl string, r io.Reader, client *http.Client) error {
-	return StreamTo(baseUrl+"update/boot", r, client)
-}
-
-func UpdateMBR(baseUrl string, r io.Reader, client *http.Client) error {
-	return StreamTo(baseUrl+"update/mbr", r, client)
-}
-
-func Switch(baseUrl string, client *http.Client) error {
-	resp, err := client.Post(baseUrl+"update/switch", "", nil)
+func (t *Target) Switch() error {
+	resp, err := t.HTTPClient.Post(t.BaseURL+"update/switch", "", nil)
 	if err != nil {
 		return err
 	}
@@ -112,8 +101,8 @@ func Switch(baseUrl string, client *http.Client) error {
 	return nil
 }
 
-func Reboot(baseUrl string, client *http.Client) error {
-	resp, err := client.Post(baseUrl+"reboot", "", nil)
+func (t *Target) Reboot() error {
+	resp, err := t.HTTPClient.Post(t.BaseURL+"reboot", "", nil)
 	if err != nil {
 		return err
 	}
@@ -143,17 +132,4 @@ func targetSupports(baseURL string, client *http.Client) ([]string, error) {
 		return nil, err
 	}
 	return strings.Split(strings.TrimSpace(string(body)), ","), nil
-}
-
-func TargetSupports(baseUrl, feature string, client *http.Client) (bool, error) {
-	supports, err := targetSupports(baseUrl, client)
-	if err != nil {
-		return false, err
-	}
-	for _, f := range supports {
-		if f == feature {
-			return true, nil
-		}
-	}
-	return false, nil
 }
