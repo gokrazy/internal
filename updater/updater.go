@@ -23,6 +23,34 @@ func (cw *countingWriter) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
+type Target struct {
+	BaseURL    string
+	HTTPClient *http.Client
+
+	supports []string
+}
+
+func NewTarget(baseURL string, httpClient *http.Client) (*Target, error) {
+	supports, err := targetSupports(baseURL, httpClient)
+	if err != nil {
+		return nil, err
+	}
+	return &Target{
+		BaseURL:    baseURL,
+		HTTPClient: httpClient,
+		supports:   supports,
+	}, nil
+}
+
+func (t *Target) Supports(feature string) bool {
+	for _, f := range t.supports {
+		if f == feature {
+			return true
+		}
+	}
+	return false
+}
+
 func StreamTo(baseUrl string, r io.Reader, client *http.Client) error {
 	start := time.Now()
 	hash := sha256.New()
@@ -96,26 +124,33 @@ func Reboot(baseUrl string, client *http.Client) error {
 	return nil
 }
 
-func TargetSupports(baseUrl, feature string, client *http.Client) (bool, error) {
-	resp, err := client.Get(baseUrl + "update/features")
+func targetSupports(baseURL string, client *http.Client) ([]string, error) {
+	resp, err := client.Get(baseURL + "update/features")
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	if resp.StatusCode == http.StatusNotFound {
-		// Target device does not support /features handler yet, so feature
-		// cannot be supported.
-		return false, nil
+		// Target device does not support /features handler yet, so no features
+		// are supported.
+		return nil, nil
 	}
 	if got, want := resp.StatusCode, http.StatusOK; got != want {
 		body, _ := ioutil.ReadAll(resp.Body)
-		return false, fmt.Errorf("unexpected HTTP status code: got %d, want %d (body %q)", got, want, string(body))
+		return nil, fmt.Errorf("unexpected HTTP status code: got %d, want %d (body %q)", got, want, string(body))
 	}
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
+		return nil, err
+	}
+	return strings.Split(strings.TrimSpace(string(body)), ","), nil
+}
+
+func TargetSupports(baseUrl, feature string, client *http.Client) (bool, error) {
+	supports, err := targetSupports(baseUrl, client)
+	if err != nil {
 		return false, err
 	}
-	supported := strings.Split(strings.TrimSpace(string(body)), ",")
-	for _, f := range supported {
+	for _, f := range supports {
 		if f == feature {
 			return true, nil
 		}
