@@ -14,6 +14,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/klauspost/compress/zstd"
 )
 
 var ErrUpdateHandlerNotImplemented = errors.New("update handler not implemented")
@@ -57,6 +59,13 @@ func (t *Target) Supports(feature string) bool {
 func (t *Target) StreamTo(suffix string, r io.Reader) error {
 	start := time.Now()
 	updateHash := t.Supports("updatehash")
+	// Using zstd makes the update slower overall (3.7 → 4.5s).
+	// Network bandwidth is not a limiting factor, so we do not
+	// gain anything from zstd, and we do not have a lot of CPU
+	// on the Raspberry Pi.
+	//
+	// For a remote link, this trade-off might look different.
+	useZstd := t.Supports("zstd") && false
 	var hash hash.Hash
 	if updateHash {
 		hash = crc32.NewIEEE()
@@ -64,12 +73,45 @@ func (t *Target) StreamTo(suffix string, r io.Reader) error {
 		hash = sha256.New()
 	}
 	var cw countingWriter
-	req, err := http.NewRequest(http.MethodPut, t.BaseURL+"update/"+suffix, io.TeeReader(io.TeeReader(r, hash), &cw))
+	rd := io.TeeReader(r, hash)
+	if useZstd {
+		log.Printf("(using zstd)")
+		piper, pipew := io.Pipe()
+		defer pipew.Close()
+		wr, err := zstd.NewWriter(pipew, zstd.WithEncoderLevel(zstd.SpeedFastest))
+		if err != nil {
+			return err
+		}
+		go func() {
+			defer wr.Close()
+			_, err := io.Copy(wr, io.TeeReader(r, hash))
+			if err != nil {
+				log.Printf("io.Copy: %v", err)
+				return
+			}
+			if err := wr.Close(); err != nil {
+				log.Printf("wr.Close: %v", err)
+				return
+			}
+			if err := pipew.Close(); err != nil {
+				log.Printf("pipew.Close: %v", err)
+				return
+			}
+		}()
+		rd = piper
+	}
+	req, err := http.NewRequest(
+		http.MethodPut,
+		t.BaseURL+"update/"+suffix,
+		io.TeeReader(rd, &cw))
 	if err != nil {
 		return err
 	}
 	if updateHash {
 		req.Header.Set("X-Gokrazy-Update-Hash", "crc32")
+	}
+	if useZstd {
+		req.Header.Set("Content-Encoding", "zstd")
 	}
 	resp, err := t.HTTPClient.Do(req)
 	if err != nil {
