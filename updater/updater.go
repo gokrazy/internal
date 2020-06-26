@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"hash"
+	"hash/crc32"
 	"io"
 	"io/ioutil"
 	"log"
@@ -54,11 +56,20 @@ func (t *Target) Supports(feature string) bool {
 // suffix is one of boot, root, mbr, bootonly.
 func (t *Target) StreamTo(suffix string, r io.Reader) error {
 	start := time.Now()
-	hash := sha256.New()
+	updateHash := t.Supports("updatehash")
+	var hash hash.Hash
+	if updateHash {
+		hash = crc32.NewIEEE()
+	} else {
+		hash = sha256.New()
+	}
 	var cw countingWriter
 	req, err := http.NewRequest(http.MethodPut, t.BaseURL+"update/"+suffix, io.TeeReader(io.TeeReader(r, hash), &cw))
 	if err != nil {
 		return err
+	}
+	if updateHash {
+		req.Header.Set("X-Gokrazy-Update-Hash", "crc32")
 	}
 	resp, err := t.HTTPClient.Do(req)
 	if err != nil {
@@ -81,7 +92,7 @@ func (t *Target) StreamTo(suffix string, r io.Reader) error {
 		return err
 	}
 	if got, want := decoded[:n], hash.Sum(nil); !bytes.Equal(got, want) {
-		return fmt.Errorf("unexpected SHA256 hash: got %x, want %x", got, want)
+		return fmt.Errorf("unexpected checksum: got %x, want %x", got, want)
 	}
 	duration := time.Since(start)
 	// TODO: return this
