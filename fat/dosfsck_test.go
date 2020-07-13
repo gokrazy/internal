@@ -30,6 +30,22 @@ func TestDosfsck(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	w, err = fw.File("/s.txt", time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.Write([]byte("short file name")); err != nil {
+		t.Fatal(err)
+	}
+
+	w, err = fw.File("/s.conf", time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.Write([]byte("short file name with long extension")); err != nil {
+		t.Fatal(err)
+	}
+
 	if err := fw.Flush(); err != nil {
 		t.Fatal(err)
 	}

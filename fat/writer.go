@@ -402,9 +402,6 @@ func shortFileNameBoth(name string, seen map[string]bool) (primary, ext string) 
 		primary = primary[:8]
 		fit = false
 	}
-	if len(primary) < 8 {
-		primary = primary + strings.Repeat(" ", 8-len(primary))
-	}
 	ext = basis
 	if idx := strings.LastIndex(ext, "."); idx > -1 {
 		ext = ext[idx+1:]
@@ -422,7 +419,10 @@ func shortFileNameBoth(name string, seen map[string]bool) (primary, ext string) 
 		// Generate numeric tail
 		for n := 1; n <= 999999; n++ {
 			tail := "~" + strconv.Itoa(n)
-			suggestion := primary[:len(primary)-len(tail)] + tail
+			suggestion := primary + tail
+			if len(primary)+len(tail) > 8 {
+				suggestion = primary[:8-len(tail)] + tail
+			}
 			if !seen[suggestion] {
 				primary = suggestion
 				seen[primary] = true
@@ -430,6 +430,10 @@ func shortFileNameBoth(name string, seen map[string]bool) (primary, ext string) 
 			}
 		}
 	}
+	if len(primary) < 8 {
+		primary = primary + strings.Repeat(" ", 8-len(primary))
+	}
+
 	return primary, ext
 }
 
