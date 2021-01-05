@@ -18,18 +18,24 @@ import (
 
 var ErrUpdateHandlerNotImplemented = errors.New("update handler not implemented")
 
-type countingWriter int64
+type countingWriter struct {
+	count    int64
+	progress chan int64
+}
 
 func (cw *countingWriter) Write(p []byte) (n int, err error) {
-	*cw += countingWriter(len(p))
+	cw.count += int64(len(p))
+	if cw.progress != nil {
+		cw.progress <- cw.count
+	}
 	return len(p), nil
 }
 
 type Target struct {
 	BaseURL    string
 	HTTPClient *http.Client
-
-	supports []string
+	progress   chan int64
+	supports   []string
 }
 
 func NewTarget(baseURL string, httpClient *http.Client) (*Target, error) {
@@ -42,6 +48,12 @@ func NewTarget(baseURL string, httpClient *http.Client) (*Target, error) {
 		HTTPClient: httpClient,
 		supports:   supports,
 	}, nil
+}
+
+// Progress returns bytes streamed
+func (t *Target) Progress() chan int64 {
+	t.progressC = make(chan int64)
+	return t.progressC
 }
 
 func (t *Target) Supports(feature string) bool {
@@ -63,8 +75,9 @@ func (t *Target) StreamTo(suffix string, r io.Reader) error {
 	} else {
 		hash = sha256.New()
 	}
-	var cw countingWriter
-	req, err := http.NewRequest(http.MethodPut, t.BaseURL+"update/"+suffix, io.TeeReader(io.TeeReader(r, hash), &cw))
+	cw := &countingWriter{progress: t.progress}
+	defer close(t.progress)
+	req, err := http.NewRequest(http.MethodPut, t.BaseURL+"update/"+suffix, io.TeeReader(io.TeeReader(r, hash), cw))
 	if err != nil {
 		return err
 	}
@@ -96,7 +109,7 @@ func (t *Target) StreamTo(suffix string, r io.Reader) error {
 	}
 	duration := time.Since(start)
 	// TODO: return this
-	log.Printf("%d bytes in %v, i.e. %f MiB/s", int64(cw), duration, float64(cw)/duration.Seconds()/1024/1024)
+	log.Printf("%d bytes in %v, i.e. %f MiB/s", int64(cw.count), duration, float64(cw.count)/duration.Seconds()/1024/1024)
 	return nil
 }
 
