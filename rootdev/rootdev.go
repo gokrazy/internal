@@ -32,7 +32,7 @@ const (
 // The ubd0=/dev/loop0p2 form is used when running on User Mode Linux.
 var (
 	rootRe = regexp.MustCompile(
-		`(?:root|ubd0)=(/dev/(?:mmcblk[01]p|sda|loop0p))([23])`)
+		`(?:root|ubd0)=(/dev/(?:mmcblk[01]p|sda|loop0p|nvme0n1p))([23])`)
 
 	uuidRe = regexp.MustCompile(
 		`(?:root|ubd0)=(PARTUUID=[0-9a-fA-F]+)-([023]+)`)
@@ -162,7 +162,8 @@ func InactiveRootPartition() int {
 func Partition(number int) string {
 	dev, _ := findDev()
 	if (strings.HasPrefix(dev, "/dev/mmcblk") ||
-		strings.HasPrefix(dev, "/dev/loop")) &&
+		strings.HasPrefix(dev, "/dev/loop") ||
+		strings.HasPrefix(dev, "/dev/nvme")) &&
 		!strings.HasSuffix(dev, "p") {
 		dev += "p"
 	}
@@ -177,7 +178,8 @@ func Partition(number int) string {
 func PartitionCmdline(number int) string {
 	dev, _ := findRaw()
 	if (strings.HasPrefix(dev, "/dev/mmcblk") ||
-		strings.HasPrefix(dev, "/dev/loop")) &&
+		strings.HasPrefix(dev, "/dev/loop") ||
+		strings.HasPrefix(dev, "/dev/nvme")) &&
 		!strings.HasSuffix(dev, "p") {
 		dev += "p"
 	}
