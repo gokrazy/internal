@@ -50,6 +50,18 @@ func TestDosfsck(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// dosfsck verifies it can access the entire file system, but our FAT writer
+	// might not fill up the entire file system, resulting in a too-short file:
+	size, err := tmp.Seek(0, io.SeekCurrent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pad := fw.TotalSectors*512 - int(size); pad > 0 {
+		if _, err := tmp.Write(bytes.Repeat([]byte{0}, pad)); err != nil {
+			t.Fatal(err)
+		}
+	}
+
 	if err := tmp.Close(); err != nil {
 		t.Fatal(err)
 	}

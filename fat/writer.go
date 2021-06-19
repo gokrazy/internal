@@ -165,6 +165,8 @@ type Writer struct {
 	root *directory
 
 	pending *fatUpdatingWriter
+
+	TotalSectors int // populated after Flush
 }
 
 // NewWriter returns a Writer which will write a FAT16B file system
@@ -329,7 +331,7 @@ func dirEntryCount(d *directory) int {
 	return count
 }
 
-func (fw *Writer) writeBootSector(w io.Writer, fatSectors, reservedSectors int) error {
+func (fw *Writer) writeBootSector(w io.Writer, fatSectors, reservedSectors int) (int, error) {
 	dataSectors := len(fw.fat) * int(sectorsPerCluster)
 	rootDirEntries := dirEntryCount(fw.root)
 	// The root directory must span an integral number of sectors:
@@ -373,10 +375,10 @@ func (fw *Writer) writeBootSector(w io.Writer, fatSectors, reservedSectors int) 
 		bootSectorSignature,
 	} {
 		if err := binary.Write(w, binary.LittleEndian, v); err != nil {
-			return err
+			return 0, err
 		}
 	}
-	return nil
+	return totalSectors, nil
 }
 
 func shortFileName(name string, seen map[string]bool) (primary, ext string) {
@@ -625,9 +627,11 @@ func (fw *Writer) Flush() error {
 	reservedSectors := fullClusters(1*int(sectorSize)) * int(sectorsPerCluster)
 
 	pw := &paddingWriter{w: fw.w, padTo: clusterSize}
-	if err := fw.writeBootSector(pw, fatSectors, reservedSectors); err != nil {
+	totalSectors, err := fw.writeBootSector(pw, fatSectors, reservedSectors)
+	if err != nil {
 		return err
 	}
+	fw.TotalSectors = totalSectors
 	if err := pw.Flush(); err != nil {
 		return err
 	}
