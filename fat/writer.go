@@ -273,6 +273,7 @@ func (fw *Writer) File(path string, modTime time.Time) (io.Writer, error) {
 		if err := fw.pending.Close(); err != nil {
 			return nil, err
 		}
+		fw.pending = nil
 	}
 	dir, err := fw.dir(filepath.Dir(path))
 	if err != nil {
@@ -590,6 +591,7 @@ func (fw *Writer) Flush() error {
 		if err := fw.pending.Close(); err != nil {
 			return err
 		}
+		fw.pending = nil
 	}
 
 	// Write all non-root directory entries recursively
