@@ -254,6 +254,12 @@ func (fuw *fatUpdatingWriter) Close() error {
 		return err
 	}
 	fw := fuw.fw // for convenience
+	if fuw.count == 0 {
+		if fuw.file != nil {
+			fuw.file.firstCluster = 0
+		}
+		return nil
+	}
 	for i := 0; i < fuw.pw.count/clusterSize; i++ {
 		// Append a pointer to the next FAT entry
 		fw.fat = append(fw.fat, fw.currentCluster()+1)
