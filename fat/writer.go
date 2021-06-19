@@ -144,7 +144,7 @@ type directory struct {
 }
 
 func (d *directory) Attr() uint8 {
-	return 0x10 // directory
+	return attrDirectory
 }
 
 type Writer struct {
@@ -556,7 +556,7 @@ func (fw *Writer) writeDir(d *directory) error {
 	}
 
 	for _, e := range d.entries {
-		if e.Attr() != 0x10 {
+		if e.Attr() != attrDirectory {
 			continue
 		}
 		if err := fw.writeDir(e.(*directory)); err != nil {
@@ -594,7 +594,7 @@ func (fw *Writer) Flush() error {
 
 	// Write all non-root directory entries recursively
 	for _, e := range fw.root.entries {
-		if e.Attr() != 0x10 {
+		if e.Attr() != attrDirectory {
 			continue
 		}
 		if err := fw.writeDir(e.(*directory)); err != nil {
