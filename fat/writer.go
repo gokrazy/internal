@@ -314,7 +314,7 @@ func (fw *Writer) writeFAT() error {
 }
 
 func dirEntryCount(d *directory) int {
-	count := 0
+	count := 1 // volume label
 	for _, e := range d.entries {
 		count++                                // short file name entry
 		count += (len(e.FullName()) + 12) / 13 // long file name entries
@@ -458,6 +458,21 @@ func (fw *Writer) writeDirEntries(w io.Writer, d *directory) error {
 			},
 		}, allEntries...)
 	}
+
+	if d.parent == nil {
+		// For the root directory, include a volume label directory entry as
+		// first entry, too:
+		for _, v := range []interface{}{
+			[11]byte{'g', 'o', 'k', 'r', 'a', 'z', 'y', ' ', ' ', ' ', ' '},
+			uint8(attrVolumeId),
+			[20]byte{},
+		} {
+			if err := binary.Write(w, binary.LittleEndian, v); err != nil {
+				return err
+			}
+		}
+	}
+
 	seen := make(map[string]bool)
 	for _, entry := range allEntries {
 		// Long Directory Entry
