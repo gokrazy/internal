@@ -496,28 +496,30 @@ func (fw *Writer) writeDirEntries(w io.Writer, d *directory) error {
 			binary.LittleEndian.PutUint16(buf[i*2:], enc)
 		}
 		primary, ext := shortFileNameWrite(name, seen)
-		checksum := uint8(0)
-		for _, ch := range []byte(primary + ext) {
-			checksum = (((checksum & 1) << 7) | ((checksum & 0xFE) >> 1)) + ch
-		}
-		for i := chunks - 1; i >= 0; i-- {
-			order := byte(i + 1) // 1-based
-			if i == chunks-1 {
-				order |= 0x40 // LAST_LONG_ENTRY
+		if name != "." && name != ".." {
+			checksum := uint8(0)
+			for _, ch := range []byte(primary + ext) {
+				checksum = (((checksum & 1) << 7) | ((checksum & 0xFE) >> 1)) + ch
 			}
-			namebuf := buf[i*13*2:]
-			for _, v := range []interface{}{
-				order,               // order in the sequence of long dir entries
-				namebuf[0 : 0+10],   // characters 1-5
-				byte(attrLongName),  // always attrLongName
-				byte(0),             // always 0 (reserved)
-				checksum,            // checksum over the corresponding short directory entry
-				namebuf[10 : 10+12], // characters 6-11
-				uint16(0),           // always 0 (older tools may interpret this as first cluster)
-				namebuf[22 : 22+4],  // characters 12-13
-			} {
-				if err := binary.Write(w, binary.LittleEndian, v); err != nil {
-					return err
+			for i := chunks - 1; i >= 0; i-- {
+				order := byte(i + 1) // 1-based
+				if i == chunks-1 {
+					order |= 0x40 // LAST_LONG_ENTRY
+				}
+				namebuf := buf[i*13*2:]
+				for _, v := range []interface{}{
+					order,               // order in the sequence of long dir entries
+					namebuf[0 : 0+10],   // characters 1-5
+					byte(attrLongName),  // always attrLongName
+					byte(0),             // always 0 (reserved)
+					checksum,            // checksum over the corresponding short directory entry
+					namebuf[10 : 10+12], // characters 6-11
+					uint16(0),           // always 0 (older tools may interpret this as first cluster)
+					namebuf[22 : 22+4],  // characters 12-13
+				} {
+					if err := binary.Write(w, binary.LittleEndian, v); err != nil {
+						return err
+					}
 				}
 			}
 		}
