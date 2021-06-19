@@ -454,7 +454,7 @@ func (fw *Writer) writeDirEntries(w io.Writer, d *directory) error {
 			&directory{
 				common: common{
 					name:         ".",
-					firstCluster: fw.currentCluster(),
+					firstCluster: d.firstCluster,
 				},
 				parent: d,
 			},
@@ -542,25 +542,22 @@ func (fw *Writer) writeDirEntries(w io.Writer, d *directory) error {
 			}
 		}
 	}
-
 	return nil
 }
 
 func (fw *Writer) writeDir(d *directory) error {
-	fuw := &fatUpdatingWriter{
-		fw: fw,
-		pw: &paddingWriter{
-			w:     fw.dataTmp,
-			padTo: clusterSize,
-		},
-	}
-
 	d.firstCluster = fw.currentCluster()
-	if err := fw.writeDirEntries(fuw, d); err != nil {
+	// TODO: calculate how many clusters we will need for all directory entries
+
+	// Allocate 1 self-standing cluster (for now) in the FAT:
+	fw.fat = append(fw.fat, endOfChain)
+
+	offset, err := fw.dataTmp.Seek(0, io.SeekCurrent)
+	if err != nil {
 		return err
 	}
 
-	if err := fuw.Close(); err != nil {
+	if _, err := fw.dataTmp.Seek(int64(clusterSize), io.SeekCurrent); err != nil {
 		return err
 	}
 
@@ -571,6 +568,22 @@ func (fw *Writer) writeDir(d *directory) error {
 		if err := fw.writeDir(e.(*directory)); err != nil {
 			return err
 		}
+	}
+
+	if _, err := fw.dataTmp.Seek(offset, io.SeekStart); err != nil {
+		return err
+	}
+
+	pw := &paddingWriter{
+		w:     fw.dataTmp,
+		padTo: clusterSize,
+	}
+
+	if err := fw.writeDirEntries(pw, d); err != nil {
+		return err
+	}
+	if err := pw.Flush(); err != nil {
+		return err
 	}
 
 	return nil
