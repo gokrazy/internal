@@ -554,14 +554,7 @@ func (fw *Writer) writeDir(d *directory) error {
 	// Allocate 1 self-standing cluster (for now) in the FAT:
 	fw.fat = append(fw.fat, endOfChain)
 
-	offset, err := fw.dataTmp.Seek(0, io.SeekCurrent)
-	if err != nil {
-		return err
-	}
-
-	if _, err := fw.dataTmp.Seek(int64(clusterSize), io.SeekCurrent); err != nil {
-		return err
-	}
+	clusterOffset := (int64(d.firstCluster) - int64(unusableClusters)) * int64(clusterSize)
 
 	for _, e := range d.entries {
 		if e.Attr() != attrDirectory {
@@ -572,7 +565,7 @@ func (fw *Writer) writeDir(d *directory) error {
 		}
 	}
 
-	if _, err := fw.dataTmp.Seek(offset, io.SeekStart); err != nil {
+	if _, err := fw.dataTmp.Seek(clusterOffset, io.SeekStart); err != nil {
 		return err
 	}
 

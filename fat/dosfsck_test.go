@@ -40,6 +40,14 @@ func TestDosfsck(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	w, err = fw.File("/loader/entries/gokrazy.conf", time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.Write([]byte("title gokrazy")); err != nil {
+		t.Fatal(err)
+	}
+
 	w, err = fw.File("/EFI/BOOT/bootx64.efi", time.Now())
 	if err != nil {
 		t.Fatal(err)
