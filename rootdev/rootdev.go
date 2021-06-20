@@ -17,6 +17,8 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+
+	"github.com/gokrazy/internal/gpt"
 )
 
 var cmdlineFile = "/proc/cmdline" // for testing
@@ -36,7 +38,49 @@ var (
 
 	uuidRe = regexp.MustCompile(
 		`(?:root|ubd0)=(PARTUUID=[0-9a-fA-F]+)-([023]+)`)
+
+	gptUuidRe = regexp.MustCompile(
+		`(?:root|ubd0)=(PARTUUID=[0-9a-fA-F-]+)/PARTNROFF=([123])`)
 )
+
+func findGPTPartUUID(uuid string, offset int) (_ string, partition int, _ error) {
+	var dev string
+	uuid = strings.ToLower(uuid)
+	log.Printf("findGPTPartUUID(uuid=%q)", uuid)
+	err := filepath.Walk("/sys/block", func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			log.Printf("findGPTPartUUID: %v", err)
+			return nil
+		}
+		if info.Mode()&os.ModeSymlink == 0 {
+			return nil
+		}
+		devname := "/dev/" + filepath.Base(path)
+		f, err := os.Open(devname)
+		if err != nil {
+			log.Printf("findGPTPartUUID: %v", err)
+			return nil
+		}
+		defer f.Close()
+		for idx, partUUID := range gpt.PartitionUUIDs(f) {
+			if strings.ToLower(partUUID) != uuid {
+				continue
+			}
+			dev = devname
+			partition = (idx + 1) + offset
+			// TODO: abort early with sentinel error code
+			return nil
+		}
+		return nil
+	})
+	if err != nil {
+		return "", 0, err
+	}
+	if dev == "" {
+		return "", 0, fmt.Errorf("PARTUUID=%s not found", uuid)
+	}
+	return dev, partition, nil
+}
 
 func findPartUUID(uuid string) (string, error) {
 	var dev string
@@ -94,12 +138,15 @@ func findRaw() (dev string, partition string) {
 		panic(err)
 	}
 
-	matches := uuidRe.FindStringSubmatch(string(cmdline))
-	if len(matches) == 3 {
+	if matches := gptUuidRe.FindStringSubmatch(string(cmdline)); len(matches) == 3 {
 		return matches[1], matches[2]
 	}
 
-	matches = rootRe.FindStringSubmatch(string(cmdline))
+	if matches := uuidRe.FindStringSubmatch(string(cmdline)); len(matches) == 3 {
+		return matches[1], matches[2]
+	}
+
+	matches := rootRe.FindStringSubmatch(string(cmdline))
 	if len(matches) != 3 {
 		panic(fmt.Sprintf("rootdev.find: kernel command line %q did not match %v",
 			strings.TrimSpace(string(cmdline)),
@@ -110,6 +157,16 @@ func findRaw() (dev string, partition string) {
 
 func findDev() (dev string, partition string) {
 	dev, partition = findRaw()
+	if strings.HasPrefix(dev, "PARTUUID=") && strings.Contains(dev, "-") {
+		offset, _ := strconv.Atoi(partition)
+		var err error
+		var partition int
+		dev, partition, err = findGPTPartUUID(strings.TrimPrefix(dev, "PARTUUID="), offset)
+		if err != nil {
+			panic(err)
+		}
+		return dev, strconv.Itoa(partition)
+	}
 	if strings.HasPrefix(dev, "PARTUUID=") {
 		var err error
 		dev, err = findPartUUID(strings.TrimPrefix(dev, "PARTUUID="))
@@ -182,6 +239,9 @@ func PartitionCmdline(number int) string {
 		strings.HasPrefix(dev, "/dev/nvme")) &&
 		!strings.HasSuffix(dev, "p") {
 		dev += "p"
+	}
+	if strings.HasPrefix(dev, "PARTUUID=") && strings.Contains(dev, "-") {
+		return dev + fmt.Sprintf("/PARTNROFF=%d", number-1)
 	}
 	if strings.HasPrefix(dev, "PARTUUID=") {
 		return dev + fmt.Sprintf("-%02d", number)
