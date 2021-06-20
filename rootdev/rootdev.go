@@ -46,7 +46,6 @@ var (
 func findGPTPartUUID(uuid string, offset int) (_ string, partition int, _ error) {
 	var dev string
 	uuid = strings.ToLower(uuid)
-	log.Printf("findGPTPartUUID(uuid=%q)", uuid)
 	err := filepath.Walk("/sys/block", func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			log.Printf("findGPTPartUUID: %v", err)
