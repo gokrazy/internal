@@ -1,6 +1,6 @@
 module github.com/gokrazy/internal
 
-go 1.14
+go 1.17
 
 require (
 	github.com/google/go-cmp v0.5.5
