@@ -34,3 +34,19 @@ func TestSortedAndNonOverlappingRootFiles(t *testing.T) {
 		})
 	}
 }
+
+func TestUniqueSlugs(t *testing.T) {
+	slugs := make(map[string]struct{})
+	for dev, cfg := range DeviceConfigs {
+		t.Run(dev, func(t *testing.T) {
+			if cfg.Slug == "" {
+				t.Fatalf("Empty slug")
+			}
+
+			if _, ok := slugs[cfg.Slug]; ok {
+				t.Fatalf("Slug %s is duplicated", cfg.Slug)
+			}
+			slugs[cfg.Slug] = struct{}{}
+		})
+	}
+}
