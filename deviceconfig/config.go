@@ -18,6 +18,8 @@ type DeviceConfig struct {
 	MBROnlyWithoutGPT bool
 	// Bootloader files stored on raw root disk device.
 	RootDeviceFiles []RootFile
+	// Slug is a unique, short string used by gokr-packer to refer to this device.
+	Slug string
 }
 
 const sectorSize = 512
@@ -36,6 +38,17 @@ var (
 				{"u-boot.bin", 63 * sectorSize, 1440 * sectorSize}, // sectors 63 - 1502
 				{"tzsw.bin", 1503 * sectorSize, 512 * sectorSize},  // sectors 1503 - 2014
 			},
+			Slug: "odroidhc1",
 		},
 	}
 )
+
+func GetDeviceConfigBySlug(slug string) (DeviceConfig, bool) {
+	for _, cfg := range DeviceConfigs {
+		if cfg.Slug == slug {
+			return cfg, true
+		}
+	}
+
+	return DeviceConfig{}, false
+}
