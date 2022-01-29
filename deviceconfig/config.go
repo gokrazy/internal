@@ -40,6 +40,10 @@ var (
 			},
 			Slug: "odroidhc1",
 		},
+		"QEMU testing MBR": {
+			MBROnlyWithoutGPT: true,
+			Slug:              "qemumbrtesting",
+		},
 	}
 )
 
