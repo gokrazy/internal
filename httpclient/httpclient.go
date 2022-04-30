@@ -15,7 +15,7 @@ import (
 	"github.com/gokrazy/internal/config"
 )
 
-func GetTLSHttpClientByTLSFlag(tlsFlag *string, tlsInsecure *bool, baseUrl *url.URL) (*http.Client, bool, error) {
+func GetTLSHttpClientByTLSFlag(tlsFlag string, tlsInsecure bool, baseUrl *url.URL) (*http.Client, bool, error) {
 	rootCAs, err := x509.SystemCertPool()
 	if err != nil {
 		log.Printf("initializing x509 system cert pool failed (%v), falling back to empty cert pool", err)
@@ -24,14 +24,14 @@ func GetTLSHttpClientByTLSFlag(tlsFlag *string, tlsInsecure *bool, baseUrl *url.
 		rootCAs = x509.NewCertPool()
 	}
 
-	if *tlsFlag == "" {
+	if tlsFlag == "" {
 		return getTLSHTTPClient(rootCAs, tlsInsecure), false, nil
 	}
 
 	foundMatchingCertificate := false
 	// Append user specified certificate(s)
-	if *tlsFlag != "self-signed" {
-		usrCert := strings.Split(*tlsFlag, ",")[0]
+	if tlsFlag != "self-signed" {
+		usrCert := strings.Split(tlsFlag, ",")[0]
 		certBytes, err := ioutil.ReadFile(usrCert)
 		if err != nil {
 			return nil, false, fmt.Errorf("reading user specified certificate %s: %v", usrCert, err)
@@ -55,11 +55,11 @@ func GetTLSHttpClientByTLSFlag(tlsFlag *string, tlsInsecure *bool, baseUrl *url.
 	return getTLSHTTPClient(rootCAs, tlsInsecure), foundMatchingCertificate, nil
 }
 
-func getTLSHTTPClient(trustStore *x509.CertPool, tlsInsecure *bool) *http.Client {
+func getTLSHTTPClient(trustStore *x509.CertPool, tlsInsecure bool) *http.Client {
 	httpTransport := http.DefaultTransport.(*http.Transport).Clone()
 	httpTransport.TLSClientConfig = &tls.Config{
 		RootCAs:            trustStore,
-		InsecureSkipVerify: *tlsInsecure,
+		InsecureSkipVerify: tlsInsecure,
 	}
 
 	return &http.Client{
