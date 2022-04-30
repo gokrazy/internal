@@ -11,18 +11,18 @@ import (
 
 var update string
 
-func RegisterFlags(fs *flag.FlagSet) {
+func RegisterFlags(fs *flag.FlagSet, updateFlagName string) {
 	fs.StringVar(&update,
-		"update",
+		updateFlagName,
 		os.Getenv("GOKRAZY_UPDATE"),
-		`URL of a gokrazy installation (e.g. http://gokrazy:mypassword@myhostname/) to update. The special value "yes" uses the stored password and -hostname value to construct the URL`)
+		`URL of a gokrazy installation (e.g. http://gokrazy:mypassword@myhostname/) to work with. The special value "yes" uses the stored password and -hostname value to construct the URL`)
 }
 
-func RegisterPflags(fs *pflag.FlagSet) {
+func RegisterPflags(fs *pflag.FlagSet, updateFlagName string) {
 	fs.StringVar(&update,
-		"update",
+		updateFlagName,
 		os.Getenv("GOKRAZY_UPDATE"),
-		`URL of a gokrazy installation (e.g. http://gokrazy:mypassword@myhostname/) to update. The special value "yes" uses the stored password and -hostname value to construct the URL`)
+		`URL of a gokrazy installation (e.g. http://gokrazy:mypassword@myhostname/) to work with. The special value "yes" uses the stored password and -hostname value to construct the URL`)
 }
 
 func GetUpdateTarget(hostname string) (defaultPassword, updateHostname string) {
