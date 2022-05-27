@@ -19,6 +19,7 @@ func userConfigDir() string {
 }
 
 // Typically ~/.config/gokrazy on Linux
+// Typically ~/Library/Application\ Support/gokrazy on macOS/Darwin
 func gokrazyConfigDir() string {
 	return filepath.Join(userConfigDir(), "gokrazy")
 }
