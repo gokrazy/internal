@@ -24,13 +24,13 @@ func GetTLSHttpClientByTLSFlag(tlsFlag string, tlsInsecure bool, baseUrl *url.UR
 		rootCAs = x509.NewCertPool()
 	}
 
-	if tlsFlag == "" {
+	if tlsFlag == "off" {
 		return getTLSHTTPClient(rootCAs, tlsInsecure), false, nil
 	}
 
 	foundMatchingCertificate := false
 	// Append user specified certificate(s)
-	if tlsFlag != "self-signed" {
+	if tlsFlag != "self-signed" && tlsFlag != "" {
 		usrCert := strings.Split(tlsFlag, ",")[0]
 		certBytes, err := ioutil.ReadFile(usrCert)
 		if err != nil {

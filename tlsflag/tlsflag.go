@@ -49,32 +49,43 @@ func (e *ErrNotYetCreated) Error() string {
 
 func CertificatePathsFor(hostname string) (certPath string, keyPath string, _ error) {
 	hostConfigPath := config.HostnameSpecific(hostname)
+	certPath = filepath.Join(string(hostConfigPath), "cert.pem")
+	keyPath = filepath.Join(string(hostConfigPath), "key.pem")
+	exist := true
+	if _, err := os.Stat(certPath); os.IsNotExist(err) {
+		exist = false
+	}
+	if _, err := os.Stat(keyPath); os.IsNotExist(err) {
+		exist = false
+	}
+
 	switch useTLS {
 	case "self-signed":
-		certPath = filepath.Join(string(hostConfigPath), "cert.pem")
-		keyPath = filepath.Join(string(hostConfigPath), "key.pem")
-		gen := false
-		exist := true
-		if _, err := os.Stat(certPath); os.IsNotExist(err) {
-			gen = true
-			exist = false
-		}
-		if _, err := os.Stat(keyPath); os.IsNotExist(err) {
-			gen = true
-			exist = false
-		}
-		if exist {
-			// TODO: Check validity dates of existing certificate
-		}
-		if gen {
+		// If the user set -tls=self-signed, treat non-existing certificates as
+		// an error.
+
+		if !exist {
 			return "", "", &ErrNotYetCreated{
 				HostConfigPath: string(hostConfigPath),
 				CertPath:       certPath,
 				KeyPath:        keyPath,
 			}
 		}
-	case "":
+
+		// TODO: Check validity dates of existing certificate
+
+	case "off":
+		// User specified -tls=off explicitly.
 		return "", "", nil
+
+	case "":
+		// If the user did not set -tls, return the cert/key path locations only
+		// if they exist.
+
+		if !exist {
+			return "", "", nil
+		}
+
 	default:
 		parts := strings.Split(useTLS, ",")
 		certPath = parts[0]
