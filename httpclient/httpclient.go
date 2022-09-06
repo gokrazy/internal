@@ -39,7 +39,7 @@ func GetTLSHttpClientByTLSFlag(tlsFlag string, tlsInsecure bool, baseUrl *url.UR
 		rootCAs.AppendCertsFromPEM(certBytes)
 	} else {
 		// Try to find a certificate in the local host config
-		hostConfig := config.HostnameSpecific(baseUrl.Host)
+		hostConfig := config.HostnameSpecific(baseUrl.Hostname())
 		certPath := filepath.Join(string(hostConfig), "cert.pem")
 		if _, err := os.Stat(certPath); !os.IsNotExist(err) {
 			foundMatchingCertificate = true
