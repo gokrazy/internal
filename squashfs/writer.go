@@ -31,6 +31,12 @@ const (
 	lzoCompression
 	xzCompression
 	lz4Compression
+	// Note: I tried switching from zlib compression to zstd compression for
+	// gokrazy root file systems, but the effect was minimal (a 30 MB zlib root
+	// squashfs shrunk to a 29 MB zstd root squashfs). Given that the kernel
+	// must support zstd, too, which not all do (notably the Raspberry Pi
+	// foundation kernel does not enable zstd).
+	zstdCompression
 )
 
 const (
