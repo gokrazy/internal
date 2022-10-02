@@ -102,3 +102,11 @@ func CertificatePathsFor(hostname string) (certPath string, keyPath string, _ er
 func GetTLSHttpClient(updateBaseUrl *url.URL) (*http.Client, bool, error) {
 	return httpclient.GetTLSHttpClientByTLSFlag(useTLS, insecure, updateBaseUrl)
 }
+
+func GetUseTLS() string { return useTLS }
+
+func SetUseTLS(s string) { useTLS = s }
+
+func GetInsecure() bool { return insecure }
+
+func SetInsecure(b bool) { insecure = b }

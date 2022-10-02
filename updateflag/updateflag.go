@@ -68,6 +68,6 @@ func NewInstallation() bool {
 	return update == ""
 }
 
-func SetUpdate(u string) {
-	update = u
-}
+func SetUpdate(u string) { update = u }
+
+func GetUpdate() string { return update }
