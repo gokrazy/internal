@@ -16,7 +16,7 @@ var (
 func RegisterPflags(fs *pflag.FlagSet) {
 	def := os.Getenv("GOKRAZY_INSTANCE")
 	if def == "" {
-		def = "gokrazy"
+		def = "hello"
 	}
 	fs.StringVarP(&instance,
 		"instance",
