@@ -1,45 +1,270 @@
 // Package config allows tools such as the gokr-packer or breakglass reading
-// host-specific configuration, such as the HTTP password.
+// gokrazy instance configuration (with fallback to the older host-specific
+// configuration) for data such as the HTTP password, or package-specific
+// command line flags.
 package config
 
 import (
-	"io/ioutil"
-	"log"
+	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
-	"strings"
+	"time"
+
+	"github.com/gokrazy/internal/instanceflag"
 )
 
-func userConfigDir() string {
-	userConfigDir, err := os.UserConfigDir()
-	if err != nil {
-		log.Fatalf("https://golang.org/pkg/os/#UserConfigDir failed: %v", err)
+// InternalCompatibilityFlags are only set by gokr-packer -write_instance_config
+// to make the migration easier, and should never be set by users in config.json
+// manually.
+type InternalCompatibilityFlags struct {
+	// These have become 'gok overwrite' flags:
+	Overwrite          string `json:",omitempty"` // -overwrite
+	OverwriteBoot      string `json:",omitempty"` // -overwrite_boot
+	OverwriteMBR       string `json:",omitempty"` // -overwrite_mbr
+	OverwriteRoot      string `json:",omitempty"` // -overwrite_root
+	Sudo               string `json:",omitempty"` // -sudo
+	TargetStorageBytes int    `json:",omitempty"` // -target_storage_bytes
+
+	// These have become 'gok update' flags:
+	Update   string `json:",omitempty"` // -update
+	Insecure bool   `json:",omitempty"` // -insecure
+	Testboot bool   `json:",omitempty"` // -testboot
+
+	// These will likely not be carried over from gokr-packer to gok because of
+	// a lack of usage.
+	InitPkg       string `json:",omitempty"` // -init_pkg
+	OverwriteInit string `json:",omitempty"` // -overwrite_init
+
+	// TODO: remove this, or document why it is needed
+	Env []string `json:",omitempty"` // environment variables starting with GO
+}
+
+type UpdateStruct struct {
+	// Hostname (in UpdateStruct) overrides Struct.Hostname, but only for
+	// deploying the update via HTTP, not in the generated image.
+	Hostname string `json:",omitempty"`
+
+	// UseTLS can be one of:
+	//
+	// - empty (""), meaning use TLS if certificates exist
+	// - "off", disabling TLS even if certificates exist
+	// - "self-signed", creating TLS certificates if needed
+	UseTLS string `json:",omitempty"` // -tls
+
+	HttpPort     string `json:",omitempty"` // -http_port
+	HttpsPort    string `json:",omitempty"` // -https_port
+	HttpPassword string `json:",omitempty"` // http-password.txt
+	CertPEM      string `json:",omitempty"` // cert.pem
+	KeyPEM       string `json:",omitempty"` // key.pem
+}
+
+func (u *UpdateStruct) WithFallbackToHostSpecific(host string) (*UpdateStruct, error) {
+	result := UpdateStruct{
+		Hostname: u.Hostname,
 	}
-	return userConfigDir
+
+	if u.HttpPort != "" {
+		result.HttpPort = u.HttpPort
+	} else {
+		port, err := HostnameSpecific(host).ReadFile("http-port.txt")
+		if err != nil && !os.IsNotExist(err) {
+			return nil, err
+		}
+		result.HttpPort = port
+	}
+
+	if u.HttpsPort != "" {
+		result.HttpsPort = u.HttpsPort
+	} else {
+		// There was no extra file for the HTTPS port (http-port.txt was used).
+		result.HttpsPort = result.HttpPort
+	}
+
+	if u.HttpPassword != "" {
+		result.HttpPassword = u.HttpPassword
+	} else {
+		pw, err := HostnameSpecific(host).ReadFile("http-password.txt")
+		if err != nil && !os.IsNotExist(err) {
+			return nil, err
+		}
+		result.HttpPassword = pw
+	}
+
+	if u.CertPEM != "" {
+		result.CertPEM = u.CertPEM
+	} else {
+		cert, err := HostnameSpecific(host).ReadFile("cert.pem")
+		if err != nil && !os.IsNotExist(err) {
+			return nil, err
+		}
+		result.CertPEM = cert
+	}
+
+	if u.KeyPEM != "" {
+		result.KeyPEM = u.KeyPEM
+	} else {
+		key, err := HostnameSpecific(host).ReadFile("cert.pem")
+		if err != nil && !os.IsNotExist(err) {
+			return nil, err
+		}
+		result.KeyPEM = key
+	}
+
+	return &result, nil
 }
 
-// Typically ~/.config/gokrazy on Linux
-// Typically ~/Library/Application\ Support/gokrazy on macOS/Darwin
-func gokrazyConfigDir() string {
-	return filepath.Join(userConfigDir(), "gokrazy")
+type PackageConfig struct {
+	// GoBuildFlags will be passed to “go build” as extra arguments.
+	//
+	// To pass build tags, do not use -tags=mycustomtag; instead set the
+	// GoBuildTags field to not overwrite the gokrazy default build tags.
+	GoBuildFlags []string `json:",omitempty"`
+
+	// GoBuildTags will be added to the list of gokrazy default build tags.
+	GoBuildTags []string `json:",omitempty"`
+
+	// Environment contains key=value pairs, like in Go’s os.Environ().
+	Environment []string `json:",omitempty"`
+
+	// CommandLineFlags will be set when starting the program.
+	CommandLineFlags []string `json:",omitempty"`
+
+	// DontStart makes the gokrazy init not start this program
+	// automatically. Users can still start it manually via the web interface,
+	// or interactively via breakglass.
+	DontStart bool `json:",omitempty"`
+
+	// WaitForClock makes the gokrazy init wait for clock synchronization before
+	// starting the program. This is useful when modifying the program source to
+	// call gokrazy.WaitForClock() is inconvenient.
+	WaitForClock bool `json:",omitempty"`
+
+	// ExtraFilePaths maps from root file system destination path to a relative
+	// or absolute path on the host on which the packer is running.
+	//
+	// Lookup order:
+	// 1. <path>_<target_goarch>.tar
+	// 2. <path>.tar
+	// 3. <path> (directory)
+	ExtraFilePaths map[string]string `json:",omitempty"`
+
+	// ExtraFileContents maps from root file system destination path to the
+	// plain text contents of the file.
+	ExtraFileContents map[string]string `json:",omitempty"`
 }
 
-func Gokrazy() string { return gokrazyConfigDir() }
+// Fields where we need to distinguish between not being set (= use the default)
+// and being set to an empty value (= disable), such as FirmwarePackage, are
+// pointers. Fields that are required (Hostname) or where the empty value is not
+// valid (InternalCompatibilityFlags.Sudo) don’t need to be pointers. If needed,
+// we can switch fields from non-pointer to pointer, as the JSON on-disk
+// representation does not change, and the config package is in
+// github.com/gokrazy/internal.
+type Struct struct {
+	Hostname   string        // -hostname
+	DeviceType string        `json:",omitempty"` // -device_type
+	Update     *UpdateStruct `json:",omitempty"`
 
-type HostnameDir string
+	Packages []string // flag.Args()
 
-func (h HostnameDir) ReadFile(configBaseName string) (string, error) {
-	b, err := ioutil.ReadFile(filepath.Join(string(h), configBaseName))
-	if err != nil {
-		// fall back to global path
-		b, err = ioutil.ReadFile(filepath.Join(gokrazyConfigDir(), configBaseName))
-		if err != nil {
-			return "", err
+	// If PackageConfig is specified, all package config is taken from the
+	// config struct, no longer from the file system, except for extrafiles/.
+	PackageConfig map[string]PackageConfig `json:",omitempty"`
+
+	SerialConsole string `json:",omitempty"`
+
+	GokrazyPackages *[]string `json:",omitempty"` // -gokrazy_pkgs
+	KernelPackage   *string   `json:",omitempty"` // -kernel_package
+	FirmwarePackage *string   `json:",omitempty"` // -firmware_package
+	EEPROMPackage   *string   `json:",omitempty"` // -eeprom_package
+
+	// Do not set these manually in config.json, these fields only exist so that
+	// the entire old gokr-packer flag surface keeps working.
+	InternalCompatibilityFlags *InternalCompatibilityFlags `json:",omitempty"`
+
+	Meta struct {
+		Instance     string
+		Path         string
+		LastModified time.Time
+	} `json:"-"` // omit from JSON
+}
+
+func (s *Struct) GokrazyPackagesOrDefault() []string {
+	if s.GokrazyPackages == nil {
+		return []string{
+			"github.com/gokrazy/gokrazy/cmd/dhcp",
+			"github.com/gokrazy/gokrazy/cmd/ntp",
+			"github.com/gokrazy/gokrazy/cmd/randomd",
 		}
 	}
-	return strings.TrimSpace(string(b)), nil
+	return *s.GokrazyPackages
 }
 
-func HostnameSpecific(hostname string) HostnameDir {
-	return HostnameDir(filepath.Join(gokrazyConfigDir(), "hosts", hostname))
+func (s *Struct) KernelPackageOrDefault() string {
+	if s.KernelPackage == nil {
+		// KernelPackage unspecified, fall back to the default.
+		return "github.com/gokrazy/kernel"
+	}
+	return *s.KernelPackage
+}
+
+func (s *Struct) FirmwarePackageOrDefault() string {
+	if s.FirmwarePackage == nil {
+		// FirmwarePackage unspecified, fall back to the default.
+		return "github.com/gokrazy/firmware"
+	}
+	return *s.FirmwarePackage
+}
+
+func (s *Struct) EEPROMPackageOrDefault() string {
+	if s.EEPROMPackage == nil {
+		// EEPROMPackage unspecified, fall back to the default.
+		return "github.com/gokrazy/rpi-eeprom"
+	}
+	return *s.EEPROMPackage
+}
+
+// FormatForFile pretty-prints the config struct as JSON, ready for storing it
+// in the config.json file.
+func (s *Struct) FormatForFile() ([]byte, error) {
+	b, err := json.MarshalIndent(s, "", "    ")
+	if err != nil {
+		return nil, err
+	}
+	b = append(b, '\n')
+	return b, nil
+}
+
+func InstancePath() string {
+	return filepath.Join(instanceflag.InstanceDir(), instanceflag.Instance())
+}
+
+func InstanceConfigPath() string {
+	return filepath.Join(InstancePath(), "config.json")
+}
+
+func ReadFromFile() (*Struct, error) {
+	configJSON := InstanceConfigPath()
+	f, err := os.Open(configJSON)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	st, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	b, err := io.ReadAll(f)
+	if err != nil {
+		return nil, err
+	}
+	var cfg Struct
+	if err := json.Unmarshal(b, &cfg); err != nil {
+		return nil, err
+	}
+	cfg.Meta.Instance = instanceflag.Instance()
+	cfg.Meta.Path = configJSON
+	cfg.Meta.LastModified = st.ModTime()
+	return &cfg, nil
 }
