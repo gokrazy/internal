@@ -88,25 +88,9 @@ func (u *UpdateStruct) WithFallbackToHostSpecific(host string) (*UpdateStruct, e
 		result.HTTPPassword = pw
 	}
 
-	if u.CertPEM != "" {
-		result.CertPEM = u.CertPEM
-	} else {
-		cert, err := HostnameSpecific(host).ReadFile("cert.pem")
-		if err != nil && !os.IsNotExist(err) {
-			return nil, err
-		}
-		result.CertPEM = cert
-	}
-
-	if u.KeyPEM != "" {
-		result.KeyPEM = u.KeyPEM
-	} else {
-		key, err := HostnameSpecific(host).ReadFile("key.pem")
-		if err != nil && !os.IsNotExist(err) {
-			return nil, err
-		}
-		result.KeyPEM = key
-	}
+	// Intentionally no fallback for CertPEM and KeyPEM at this stage: their
+	// fallback happens conditionally if UseTLS != off, in
+	// tlsflag.CertificatePathsFor().
 
 	return &result, nil
 }
