@@ -101,7 +101,7 @@ func (u *UpdateStruct) WithFallbackToHostSpecific(host string) (*UpdateStruct, e
 	if u.KeyPEM != "" {
 		result.KeyPEM = u.KeyPEM
 	} else {
-		key, err := HostnameSpecific(host).ReadFile("cert.pem")
+		key, err := HostnameSpecific(host).ReadFile("key.pem")
 		if err != nil && !os.IsNotExist(err) {
 			return nil, err
 		}
