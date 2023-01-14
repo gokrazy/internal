@@ -14,9 +14,8 @@ import (
 	"github.com/gokrazy/internal/instanceflag"
 )
 
-// InternalCompatibilityFlags are only set by gokr-packer -write_instance_config
-// to make the migration easier, and should never be set by users in config.json
-// manually.
+// InternalCompatibilityFlags keep older gokr-packer behavior or user interface
+// working, but should never be set by users in config.json manually.
 type InternalCompatibilityFlags struct {
 	// These have become 'gok overwrite' flags:
 	Overwrite          string `json:",omitempty"` // -overwrite
