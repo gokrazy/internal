@@ -3,14 +3,11 @@ package tlsflag
 import (
 	"flag"
 	"fmt"
-	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/gokrazy/internal/config"
-	"github.com/gokrazy/internal/httpclient"
 )
 
 var (
@@ -97,10 +94,6 @@ func CertificatePathsFor(hostname string) (certPath string, keyPath string, _ er
 		// TODO: Check validity
 	}
 	return certPath, keyPath, nil
-}
-
-func GetTLSHttpClient(updateBaseUrl *url.URL) (*http.Client, bool, error) {
-	return httpclient.GetTLSHttpClientByTLSFlag(useTLS, insecure, updateBaseUrl)
 }
 
 func GetUseTLS() string { return useTLS }
