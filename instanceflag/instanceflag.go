@@ -9,32 +9,36 @@ import (
 )
 
 var (
-	instance  string
-	parentDir string
+	instance = func() string {
+		def := os.Getenv("GOKRAZY_INSTANCE")
+		if def == "" {
+			def = "hello"
+		}
+		return def
+	}()
+	parentDir = func() string {
+		def := os.Getenv("GOKRAZY_PARENT_DIR")
+		if def == "" {
+			homeDir, err := os.UserHomeDir()
+			if err != nil {
+				homeDir = fmt.Sprintf("os.UserHomeDir failed: %v", err)
+			}
+			def = filepath.Join(homeDir, "gokrazy")
+		}
+		return def
+	}()
 )
 
 func RegisterPflags(fs *pflag.FlagSet) {
-	def := os.Getenv("GOKRAZY_INSTANCE")
-	if def == "" {
-		def = "hello"
-	}
 	fs.StringVarP(&instance,
 		"instance",
 		"i",
-		def,
+		instance,
 		`instance, identified by hostname`)
 
-	def = os.Getenv("GOKRAZY_PARENT_DIR")
-	if def == "" {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			homeDir = fmt.Sprintf("os.UserHomeDir failed: %v", err)
-		}
-		def = filepath.Join(homeDir, "gokrazy")
-	}
 	fs.StringVar(&parentDir,
 		"parent_dir",
-		def,
+		parentDir,
 		`parent directory: contains one subdirectory per instance`)
 
 }
