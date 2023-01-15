@@ -56,6 +56,9 @@ type UpdateStruct struct {
 }
 
 func (u *UpdateStruct) WithFallbackToHostSpecific(host string) (*UpdateStruct, error) {
+	if u == nil {
+		u = &UpdateStruct{}
+	}
 	result := UpdateStruct{
 		Hostname: u.Hostname,
 	}
