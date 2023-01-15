@@ -39,6 +39,14 @@ func RegisterPflags(fs *pflag.FlagSet) {
 
 }
 
+func SetInstance(i string) {
+	instance = i
+}
+
+func SetParentDir(p string) {
+	parentDir = p
+}
+
 func Instance() string {
 	return instance
 }
