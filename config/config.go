@@ -173,6 +173,20 @@ type Struct struct {
 	} `json:"-"` // omit from JSON
 }
 
+// NewStruct returns a config.Struct that was not loaded from a file, but
+// instead created empty, with only the hostname field set.
+//
+// This is handy for best-effort compatibility for older setups (before instance
+// config was introduced). Aside from compatibility, ReadFromFile() should be
+// used instead of NewStruct().
+func NewStruct(hostname string) *Struct {
+	return &Struct{
+		Hostname:                   hostname,
+		Update:                     &UpdateStruct{},
+		InternalCompatibilityFlags: &InternalCompatibilityFlags{},
+	}
+}
+
 func (s *Struct) GokrazyPackagesOrDefault() []string {
 	if s.GokrazyPackages == nil {
 		return []string{
@@ -245,6 +259,12 @@ func ReadFromFile() (*Struct, error) {
 	var cfg Struct
 	if err := json.Unmarshal(b, &cfg); err != nil {
 		return nil, err
+	}
+	if cfg.Update == nil {
+		cfg.Update = &UpdateStruct{}
+	}
+	if cfg.InternalCompatibilityFlags == nil {
+		cfg.InternalCompatibilityFlags = &InternalCompatibilityFlags{}
 	}
 	cfg.Meta.Instance = instanceflag.Instance()
 	cfg.Meta.Path = configJSON
