@@ -33,6 +33,10 @@ func For(cfg *config.Struct) (_ *http.Client, foundMatchingCertificate bool, upd
 		update.HTTPSPort = "443"
 	}
 
+	if update.Hostname == "" {
+		update.Hostname = cfg.Hostname
+	}
+
 	updateBaseURL, err = updateflag.BaseURL(update.HTTPPort, schema, update.Hostname, update.HTTPPassword)
 	if err != nil {
 		return nil, false, nil, err
