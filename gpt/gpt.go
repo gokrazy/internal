@@ -10,34 +10,51 @@ import (
 	"io"
 )
 
-// PartitionUUIDs returns the ids of all GPT partitions on the disk.  Currently,
-// only the first partition id will be returned, as that is all that gokrazy
-// currently can ever match.
-func PartitionUUIDs(r io.ReaderAt) []string {
-	type partitionEntry struct {
-		TypeGUID   [16]byte
-		GUID       [16]byte
-		FirstLBA   uint64
-		LastLBA    uint64
-		Attributes uint64
-		Name       [72]byte
-	}
+type PartitionEntry struct {
+	TypeGUID   [16]byte
+	GUID       [16]byte
+	FirstLBA   uint64
+	LastLBA    uint64
+	Attributes uint64
+	Name       [72]byte
+}
 
+func readPartitionEntries(r io.Reader) ([]PartitionEntry, error) {
 	// 512 bytes MBR
 	// 512 bytes GPT header
 	// 512 bytes GPT partition entries
 	buf := make([]byte, 3*512)
-	if _, err := r.ReadAt(buf, 0); err != nil {
-		return nil
+	if _, err := r.Read(buf); err != nil {
+		return nil, err
 	}
 
-	var firstPartition partitionEntry
-	if err := binary.Read(bytes.NewReader(buf[2*512:]), binary.LittleEndian, &firstPartition); err != nil {
+	// TODO: gokrazy always writes exactly 4 partitions, but it would be better
+	// to detect the number of partitions
+	parts := make([]PartitionEntry, 4)
+	rd := bytes.NewReader(buf[2*512:])
+	for idx := range parts {
+		if err := binary.Read(rd, binary.LittleEndian, &parts[idx]); err != nil {
+			return nil, err
+		}
+	}
+	return parts, nil
+}
+
+// PartitionEntries returns all GPT partition entries on the disk.
+func PartitionEntries(r io.Reader) ([]PartitionEntry, error) {
+	return readPartitionEntries(r)
+}
+
+// PartitionUUIDs returns the ids of all GPT partitions on the disk.  Currently,
+// only the first partition id will be returned, as that is all that gokrazy
+// currently can ever match.
+func PartitionUUIDs(r io.Reader) []string {
+	parts, err := readPartitionEntries(r)
+	if err != nil {
 		return nil
 	}
-
 	return []string{
-		GUIDFromBytes(firstPartition.GUID[:]),
+		GUIDFromBytes(parts[0].GUID[:]),
 	}
 }
 
