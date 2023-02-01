@@ -55,6 +55,18 @@ type UpdateStruct struct {
 	KeyPEM       string `json:",omitempty"` // key.pem
 }
 
+type OutputType string
+
+const (
+	OutputTypeGaf  OutputType = "gaf"
+	OutputTypeFull OutputType = "full"
+)
+
+type OutputStruct struct {
+	Path string     `json:",omitempty"`
+	Type OutputType `json:",omitempty"`
+}
+
 func (u *UpdateStruct) WithFallbackToHostSpecific(host string) (*UpdateStruct, error) {
 	if u == nil {
 		u = &UpdateStruct{}
@@ -148,6 +160,7 @@ type Struct struct {
 	Hostname   string        // -hostname
 	DeviceType string        `json:",omitempty"` // -device_type
 	Update     *UpdateStruct `json:",omitempty"`
+	Output     *OutputStruct `json:",-"` // omit from JSON
 
 	Packages []string // flag.Args()
 
