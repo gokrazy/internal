@@ -193,6 +193,7 @@ func (s *Struct) GokrazyPackagesOrDefault() []string {
 			"github.com/gokrazy/gokrazy/cmd/dhcp",
 			"github.com/gokrazy/gokrazy/cmd/ntp",
 			"github.com/gokrazy/gokrazy/cmd/randomd",
+			"github.com/gokrazy/gokrazy/cmd/heartbeat",
 		}
 	}
 	return *s.GokrazyPackages
