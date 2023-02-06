@@ -6,6 +6,7 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -259,7 +260,7 @@ func ReadFromFile() (*Struct, error) {
 	}
 	var cfg Struct
 	if err := json.Unmarshal(b, &cfg); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("decoding %s: %v", configJSON, err)
 	}
 	if cfg.Update == nil {
 		cfg.Update = &UpdateStruct{}
