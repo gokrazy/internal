@@ -4,18 +4,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/pflag"
 )
 
 var (
-	instance = func() string {
-		def := os.Getenv("GOKRAZY_INSTANCE")
-		if def == "" {
-			def = "hello"
-		}
-		return def
-	}()
 	parentDir = func() string {
 		def := os.Getenv("GOKRAZY_PARENT_DIR")
 		if def == "" {
@@ -27,7 +21,47 @@ var (
 		}
 		return def
 	}()
+
+	instance = func() string {
+		def := os.Getenv("GOKRAZY_INSTANCE")
+		if def == "" {
+			def = instanceFromPWD()
+		}
+		if def == "" {
+			def = "hello"
+		}
+		return def
+	}()
 )
+
+func instanceFromPWD() string {
+	wd, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	wdAbs, err := filepath.Abs(wd)
+	if err != nil {
+		return ""
+	}
+
+	parentAbs, err := filepath.Abs(parentDir)
+	if err != nil {
+		return ""
+	}
+
+	if !strings.HasPrefix(wdAbs, parentAbs+"/") {
+		return ""
+	}
+
+	// Process is running in an instance directory (a
+	// subdirectory of the parent dir), so default the instance
+	// flag to that same subdirectory.
+	instance := strings.TrimPrefix(wdAbs, parentAbs+"/")
+	if idx := strings.IndexRune(instance, '/'); idx > -1 {
+		instance = instance[:idx]
+	}
+	return instance
+}
 
 func RegisterPflags(fs *pflag.FlagSet) {
 	fs.StringVarP(&instance,
