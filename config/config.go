@@ -188,6 +188,13 @@ func NewStruct(hostname string) *Struct {
 	}
 }
 
+func (s *Struct) SerialConsoleOrDefault() string {
+	if s.SerialConsole == "" {
+		return "serial0,115200"
+	}
+	return s.SerialConsole
+}
+
 func (s *Struct) GokrazyPackagesOrDefault() []string {
 	if s.GokrazyPackages == nil {
 		return []string{
