@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/spf13/pflag"
 )
@@ -89,6 +90,18 @@ func Instance() string {
 	return instance
 }
 
+var parentDirOnce sync.Once
+
 func ParentDir() string {
+	parentDirOnce.Do(func() {
+		if !strings.Contains(parentDir, "./") &&
+			!strings.Contains(parentDir, "../") &&
+			!strings.Contains(parentDir, "/..") {
+			return
+		}
+		if abs, err := filepath.Abs(parentDir); err == nil {
+			parentDir = abs
+		}
+	})
 	return parentDir
 }
