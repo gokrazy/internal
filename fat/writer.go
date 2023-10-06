@@ -331,8 +331,12 @@ func dirEntryCount(d *directory) int {
 	return count
 }
 
+func (fw *Writer) usableFATEntries() int {
+	return len(fw.fat) - int(unusableClusters)
+}
+
 func (fw *Writer) writeBootSector(w io.Writer, fatSectors, reservedSectors int) (int, error) {
-	dataSectors := len(fw.fat) * int(sectorsPerCluster)
+	dataSectors := fw.usableFATEntries() * int(sectorsPerCluster)
 	rootDirEntries := dirEntryCount(fw.root)
 	// The root directory must span an integral number of sectors:
 	const (
