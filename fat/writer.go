@@ -624,11 +624,11 @@ func (fw *Writer) Flush() error {
 		}
 	}
 
-	// Blow up FAT to at least 4085 entries so that 16-bit FAT values
+	// Blow up FAT to at least 4085 usable entries so that 16-bit FAT values
 	// must be used, which is more convenient and the only size of FAT
 	// values we support.
-	if len(fw.fat) < 4085 {
-		pad := make([]uint16, 4085-len(fw.fat))
+	if padding := 4085 - fw.usableFATEntries(); padding > 0 {
+		pad := make([]uint16, padding)
 		fw.fat = append(fw.fat, pad...)
 	}
 
