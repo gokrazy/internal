@@ -242,6 +242,14 @@ func (s *Struct) FormatForFile() ([]byte, error) {
 	return b, nil
 }
 
+func (i *InternalCompatibilityFlags) SudoOrDefault() string {
+	if i.Sudo == "" {
+		return "auto"
+	}
+
+	return i.Sudo
+}
+
 func InstancePath() string {
 	return filepath.Join(instanceflag.ParentDir(), instanceflag.Instance())
 }
