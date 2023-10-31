@@ -50,17 +50,22 @@ func GetUpdateTarget(hostname string) (defaultPassword, updateHostname string) {
 	return defaultPassword, u.Host
 }
 
-func BaseURL(httpPort, schema, hostname, pw string) (*url.URL, error) {
+func BaseURL(httpPort, httpsPort, schema, hostname, pw string) (*url.URL, error) {
 	if update != "yes" && !strings.HasPrefix(update, ":") {
 		// already fully qualified, nothing to add
 		return url.Parse(update)
 	}
 	port := httpPort
+	defaultPort := "80"
+	if schema == "https" {
+		port = httpsPort
+		defaultPort = "443"
+	}
 	if strings.HasPrefix(update, ":") {
 		port = strings.TrimPrefix(update, ":")
 	}
 	update = schema + "://gokrazy:" + pw + "@" + hostname
-	if port != "80" {
+	if port != defaultPort {
 		update += ":" + port
 	}
 	update += "/"

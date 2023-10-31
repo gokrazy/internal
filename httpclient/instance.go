@@ -37,7 +37,7 @@ func For(cfg *config.Struct) (_ *http.Client, foundMatchingCertificate bool, upd
 		update.Hostname = cfg.Hostname
 	}
 
-	updateBaseURL, err = updateflag.BaseURL(update.HTTPPort, schema, update.Hostname, update.HTTPPassword)
+	updateBaseURL, err = updateflag.BaseURL(update.HTTPPort, update.HTTPSPort, schema, update.Hostname, update.HTTPPassword)
 	if err != nil {
 		return nil, false, nil, err
 	}
