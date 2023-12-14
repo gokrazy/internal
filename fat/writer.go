@@ -552,36 +552,52 @@ func (fw *Writer) writeDirEntries(w io.Writer, d *directory) error {
 }
 
 func (fw *Writer) writeDir(d *directory) error {
-	d.firstCluster = fw.currentCluster()
-	// TODO: calculate how many clusters we will need for all directory entries
+	oldFat := fw.fat
+	offset, err := fw.dataTmp.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return err
+	}
+	// Write the directory entries to populate d.firstCluster
+	if err := fw.writeDir1(d); err != nil {
+		return err
+	}
 
-	// Allocate 1 self-standing cluster (for now) in the FAT:
-	fw.fat = append(fw.fat, endOfChain)
+	// Reset the FAT to before the write and write the directory entries again,
+	// this time with the correct d.firstCluster.
+	if _, err := fw.dataTmp.Seek(offset, io.SeekStart); err != nil {
+		return err
+	}
+	fw.fat = oldFat
+	if err := fw.writeDir1(d); err != nil {
+		return err
+	}
+	return nil
+}
 
-	clusterOffset := (int64(d.firstCluster) - int64(unusableClusters)) * int64(clusterSize)
-
+func (fw *Writer) writeDir1(d *directory) error {
 	for _, e := range d.entries {
 		if e.Attr() != attrDirectory {
 			continue
 		}
-		if err := fw.writeDir(e.(*directory)); err != nil {
+		if err := fw.writeDir1(e.(*directory)); err != nil {
 			return err
 		}
 	}
 
-	if _, err := fw.dataTmp.Seek(clusterOffset, io.SeekStart); err != nil {
-		return err
+	d.firstCluster = fw.currentCluster()
+
+	fuw := &fatUpdatingWriter{
+		fw: fw,
+		pw: &paddingWriter{
+			w:     fw.dataTmp,
+			padTo: clusterSize,
+		},
 	}
 
-	pw := &paddingWriter{
-		w:     fw.dataTmp,
-		padTo: clusterSize,
-	}
-
-	if err := fw.writeDirEntries(pw, d); err != nil {
+	if err := fw.writeDirEntries(fuw, d); err != nil {
 		return err
 	}
-	if err := pw.Flush(); err != nil {
+	if err := fuw.Close(); err != nil {
 		return err
 	}
 
@@ -632,6 +648,7 @@ func (fw *Writer) Flush() error {
 		fw.fat = append(fw.fat, pad...)
 	}
 
+	// TODO: why fullSectors, the FAT is in clusters?!
 	fatSectors := fullSectors(len(fw.fat) * 2)
 
 	// We only need to reserve the boot sector, but the number of reserved
