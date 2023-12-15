@@ -163,6 +163,11 @@ type Struct struct {
 	FirmwarePackage *string   `json:",omitempty"` // -firmware_package
 	EEPROMPackage   *string   `json:",omitempty"` // -eeprom_package
 
+	// extra lines to append to the config.txt file on the boot partition which
+	// is read by the Raspberry Pi bootloader:
+	// https://www.raspberrypi.com/documentation/computers/config_txt.html
+	BootloaderExtraLines []string `json:",omitempty"`
+
 	// Do not set these manually in config.json, these fields only exist so that
 	// the entire old gokr-packer flag surface keeps working.
 	InternalCompatibilityFlags *InternalCompatibilityFlags `json:",omitempty"`
