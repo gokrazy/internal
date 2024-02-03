@@ -13,11 +13,14 @@ import (
 )
 
 func main() {
-	nasm := exec.Command("nasm", "bootloader.asm", "-o", "/dev/stdout")
+	nasm := exec.Command("nasm", "bootloader.asm", "-o", "bootloader.img")
 	nasm.Stderr = os.Stderr
-	b, err := nasm.Output()
-	if err != nil {
+	if err := nasm.Run(); err != nil {
 		log.Fatalf("%v: %v", nasm.Args, err)
+	}
+	b, err := os.ReadFile("bootloader.img")
+	if err != nil {
+		log.Fatal(err)
 	}
 	b = []byte(fmt.Sprintf("package mbr\nvar mbr = %#v", b))
 	b, err = format.Source(b)
