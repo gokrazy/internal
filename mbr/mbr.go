@@ -5,9 +5,14 @@ package mbr
 import (
 	"bytes"
 	"encoding/binary"
+
+	_ "embed"
 )
 
 //go:generate go run nasm.go
+
+//go:embed bootloader.img
+var mbr []byte
 
 // write to byte offset 433
 type bootloaderParams struct {
