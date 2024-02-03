@@ -37,7 +37,13 @@
 ; heap_end_ptr = heap_end - 0x200 = 0xde00
 ; cmd_line_ptr = base_ptr + heap_end = 0x1e000
 
-org	0x7c00
+; [bits 16] is not necessary when using `nasm bootloader.asm`
+; but it becomes necessary when switching to `nasm -f elf32 bootloader.asm`
+[bits 16]
+
+; org 0x7c00 is necessary when using `nasm bootloader.asm`
+; but it stops working when switching to `nasm -f elf32 bootloader.asm`
+;org	0x7c00
 
 	cli
 	xor	ax, ax

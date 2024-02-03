@@ -9,7 +9,7 @@ import (
 	_ "embed"
 )
 
-//go:generate go run nasm.go
+//go:generate make
 
 //go:embed bootloader.img
 var mbr []byte
