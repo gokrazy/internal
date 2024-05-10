@@ -138,6 +138,18 @@ type PackageConfig struct {
 	ExtraFileContents map[string]string `json:",omitempty"`
 }
 
+// MountDevice instructs gokrazy to mount the specified source on the specified
+// target using the specified file system type and the specified options.
+//
+// If Target contains a directory in /mnt (not a subdirectory), the packer will
+// create it on the (read-only) root file system.
+type MountDevice struct {
+	Source  string // e.g. /dev/sdx or PARTUUID=abcdef
+	Type    string // e.g. ext4
+	Target  string // e.g. /mnt/usb, will be created by the packer
+	Options string // a subset of mount(8)-like options
+}
+
 // Fields where we need to distinguish between not being set (= use the default)
 // and being set to an empty value (= disable), such as FirmwarePackage, are
 // pointers. Fields that are required (Hostname) or where the empty value is not
@@ -167,6 +179,8 @@ type Struct struct {
 	// is read by the Raspberry Pi bootloader:
 	// https://www.raspberrypi.com/documentation/computers/config_txt.html
 	BootloaderExtraLines []string `json:",omitempty"`
+
+	MountDevices []MountDevice `json:",omitempty"`
 
 	// Do not set these manually in config.json, these fields only exist so that
 	// the entire old gokr-packer flag surface keeps working.
