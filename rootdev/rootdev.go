@@ -61,7 +61,11 @@ func findGPTPartUUID(uuid string, offset int) (_ string, partition int, _ error)
 			return nil
 		}
 		defer f.Close()
-		for idx, partUUID := range gpt.PartitionUUIDs(f) {
+		partUUIDs := gpt.PartitionUUIDs(f)
+		if len(partUUIDs) > 1 {
+			partUUIDs = partUUIDs[:1]
+		}
+		for idx, partUUID := range partUUIDs {
 			if strings.ToLower(partUUID) != uuid {
 				continue
 			}

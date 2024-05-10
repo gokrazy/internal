@@ -53,9 +53,11 @@ func PartitionUUIDs(r io.Reader) []string {
 	if err != nil {
 		return nil
 	}
-	return []string{
-		GUIDFromBytes(parts[0].GUID[:]),
+	uuids := make([]string, len(parts))
+	for idx, part := range parts {
+		uuids[idx] = GUIDFromBytes(part.GUID[:])
 	}
+	return uuids
 }
 
 // GUIDFromBytes returns the canonical string representation of the specified
