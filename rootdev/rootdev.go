@@ -63,6 +63,8 @@ func findGPTPartUUID(uuid string, offset int) (_ string, partition int, _ error)
 		defer f.Close()
 		partUUIDs := gpt.PartitionUUIDs(f)
 		if len(partUUIDs) > 1 {
+			// Check only the first partition id, as that is all that gokrazy
+			// currently can ever match.
 			partUUIDs = partUUIDs[:1]
 		}
 		for idx, partUUID := range partUUIDs {

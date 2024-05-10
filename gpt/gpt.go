@@ -45,9 +45,7 @@ func PartitionEntries(r io.Reader) ([]PartitionEntry, error) {
 	return readPartitionEntries(r)
 }
 
-// PartitionUUIDs returns the ids of all GPT partitions on the disk.  Currently,
-// only the first partition id will be returned, as that is all that gokrazy
-// currently can ever match.
+// PartitionUUIDs returns the ids of all GPT partitions on the disk.
 func PartitionUUIDs(r io.Reader) []string {
 	parts, err := readPartitionEntries(r)
 	if err != nil {

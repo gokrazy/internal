@@ -16,6 +16,9 @@ func TestPartitionUUIDs(t *testing.T) {
 	got := PartitionUUIDs(f)
 	want := []string{
 		"80687DB2-F3F9-427A-8199-165DB4B50001",
+		"80687DB2-F3F9-427A-8199-165DB4B50002",
+		"80687DB2-F3F9-427A-8199-165DB4B50003",
+		"80687DB2-F3F9-427A-8199-165DB4B50004",
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Fatalf("unexpected partition UUIDs: diff (-want +got):\n%s", diff)
