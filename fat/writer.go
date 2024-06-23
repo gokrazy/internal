@@ -273,9 +273,27 @@ func (fuw *fatUpdatingWriter) Close() error {
 	return nil
 }
 
+// Exists reports whether the specified file exists. It creates directories like
+// Mkdir while checking, so should only be used if you are about to call File.
+func (fw *Writer) Exists(path string) (bool, error) {
+	if fw.pending != nil {
+		if err := fw.pending.Close(); err != nil {
+			return false, err
+		}
+		fw.pending = nil
+	}
+
+	dir, err := fw.dir(filepath.Dir(path))
+	if err != nil {
+		return false, err
+	}
+	_, exists := dir.byName[filepath.Base(path)]
+	return exists, nil
+}
+
 // File creates a file with the specified path and modTime. The
-// returned io.Writer stays valid until the next call to File, Flush
-// or Mkdir.
+// returned io.Writer stays valid until the next call to File, Flush,
+// Mkdir or Exists.
 func (fw *Writer) File(path string, modTime time.Time) (io.Writer, error) {
 	if fw.pending != nil {
 		if err := fw.pending.Close(); err != nil {
