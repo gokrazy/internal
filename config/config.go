@@ -244,7 +244,7 @@ func (s *Struct) GokrazyPackagesOrDefault() []string {
 func (s *Struct) KernelPackageOrDefault() string {
 	if s.KernelPackage == nil {
 		// KernelPackage unspecified, fall back to the default.
-		return "github.com/gokrazy/kernel"
+		return "github.com/gokrazy/kernel.rpi"
 	}
 	return *s.KernelPackage
 }
