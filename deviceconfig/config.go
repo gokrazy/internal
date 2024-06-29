@@ -20,9 +20,14 @@ type DeviceConfig struct {
 	RootDeviceFiles []RootFile
 	// Slug is a unique, short string used by gokr-packer to refer to this device.
 	Slug string
+	// Override the default boot partition start LBA (default: 8192 sectors = 4MiB)
+	BootPartitionStartLBA int64
 }
 
-const sectorSize = 512
+const (
+	sectorSize                         = 512
+	DefaultBootPartitionStartLBA int64 = 8192
+)
 
 var (
 	// DeviceConfigs contains a mapping from device model (github.com/gokrazy/gokrazy.Model) to device-specific config
@@ -43,6 +48,17 @@ var (
 		"QEMU testing MBR": {
 			MBROnlyWithoutGPT: true,
 			Slug:              "qemumbrtesting",
+		},
+		"Pine64 Rock64": {
+			// https://opensource.rock-chips.com/wiki_Partitions
+			RootDeviceFiles: []RootFile{
+				// u-boot-rockchip.bin is an überpackage that include TPL, SPL, U-Boot and u-boot.dtb.
+				// u-boot can build it as a single file with `make rock64-rk3328_defconfig && make u-boot-rockchip.bin`
+				// and its easier to work with instead of dealing with separate files.
+				{"u-boot-rockchip.bin", 64 * sectorSize, 32704 * sectorSize}, // sectors 64 - 32768
+			},
+			BootPartitionStartLBA: 32768, // 16MiB from start of disk
+			Slug:                  "rock64",
 		},
 	}
 )

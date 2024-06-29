@@ -15,7 +15,11 @@ func TestSortedAndNonOverlappingRootFiles(t *testing.T) {
 						rootDev.Name, rootDev.Offset, endExcl,
 					)
 				}
-				if rootDev.Offset+rootDev.MaxLength > 8192*512 {
+				endLBA := DefaultBootPartitionStartLBA
+				if cfg.BootPartitionStartLBA != 0 {
+					endLBA = cfg.BootPartitionStartLBA
+				}
+				if rootDev.Offset+rootDev.MaxLength > endLBA*512 {
 					t.Fatalf("Root file %s [%d, %d) overlaps boot/data partitions (starts at %d)",
 						rootDev.Name, rootDev.Offset, rootDev.Offset+rootDev.MaxLength, 8192*512,
 					)
