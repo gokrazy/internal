@@ -119,6 +119,7 @@ read_protected_mode_kernel:
 	sub	edx, 0xfe00			; update the number of bytes to load
 	add	word [gdt.dest], 0xfe00
 	adc	byte [gdt.dest+2], 0
+	adc	byte [gdt.dest+5], 0
 	jmp	short read_protected_mode_kernel.loop
 
 read_protected_mode_kernel_2:
@@ -189,15 +190,19 @@ error:
 
 	mov	si, error_msg
 
+; This used to be a loop, but we needed space for fixing
+; https://github.com/gokrazy/gokrazy/issues/248, so now
+; only the first letter (E) is printed on error.
 msg_loop:
 
 	lodsb
-	and	al, al
-	jz	reboot
 	mov	ah, 0xe
 	mov	bx, 7
 	int	0x10
-	jmp	short msg_loop
+	;; fall-through to reboot
+	;;
+	;; (The padding is here just to reach 440 bytes.)
+	nop
 
 reboot:
 
