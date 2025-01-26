@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gokrazy/internal/instanceflag"
@@ -177,6 +178,10 @@ type Struct struct {
 	DeviceType string        `json:",omitempty"` // -device_type
 	Update     *UpdateStruct `json:",omitempty"`
 
+	// Environment contains key=value pairs, like in Go’s os.Environ(),
+	// and is meant to be used for setting GOOS and GOARCH of an instance.
+	Environment []string `json:",omitempty"`
+
 	Packages []string // flag.Args()
 
 	// If PackageConfig is specified, all package config is taken from the
@@ -265,6 +270,14 @@ func (s *Struct) EEPROMPackageOrDefault() string {
 	return *s.EEPROMPackage
 }
 
+func (s *Struct) ApplyEnvironment() {
+	for _, kv := range s.Environment {
+		// validated in ReadFromFile()
+		key, value, _ := strings.Cut(kv, "=")
+		os.Setenv(key, value)
+	}
+}
+
 // FormatForFile pretty-prints the config struct as JSON, ready for storing it
 // in the config.json file.
 func (s *Struct) FormatForFile() ([]byte, error) {
@@ -292,9 +305,20 @@ func InstanceConfigPath() string {
 	return filepath.Join(InstancePath(), "config.json")
 }
 
-func ReadFromFile() (*Struct, error) {
+// ApplyInstanceFlag reads the config from InstanceConfigPath(),
+// applies the configured environment and returns the config struct.
+func ApplyInstanceFlag() (*Struct, error) {
 	configJSON := InstanceConfigPath()
-	f, err := os.Open(configJSON)
+	cfg, err := ReadFromFile(configJSON)
+	if err != nil {
+		return nil, err
+	}
+	cfg.ApplyEnvironment()
+	return cfg, nil
+}
+
+func ReadFromFile(fn string) (*Struct, error) {
+	f, err := os.Open(fn)
 	if err != nil {
 		return nil, err
 	}
@@ -309,7 +333,10 @@ func ReadFromFile() (*Struct, error) {
 	}
 	var cfg Struct
 	if err := json.Unmarshal(b, &cfg); err != nil {
-		return nil, fmt.Errorf("decoding %s: %v", configJSON, err)
+		return nil, fmt.Errorf("decoding %s: %v", fn, err)
+	}
+	if err := validate(&cfg); err != nil {
+		return nil, err
 	}
 	if cfg.Update == nil {
 		cfg.Update = &UpdateStruct{}
@@ -318,7 +345,16 @@ func ReadFromFile() (*Struct, error) {
 		cfg.InternalCompatibilityFlags = &InternalCompatibilityFlags{}
 	}
 	cfg.Meta.Instance = instanceflag.Instance()
-	cfg.Meta.Path = configJSON
+	cfg.Meta.Path = fn
 	cfg.Meta.LastModified = st.ModTime()
 	return &cfg, nil
+}
+
+func validate(cfg *Struct) error {
+	for _, kv := range cfg.Environment {
+		if _, _, ok := strings.Cut(kv, "="); !ok {
+			return fmt.Errorf("malformed Environment entry %q, expected key=value", kv)
+		}
+	}
+	return nil
 }
