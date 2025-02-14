@@ -11,8 +11,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"golang.org/x/sys/unix"
 )
 
 var fsImagePath = flag.String("fs_image_path", "", "Store the SquashFS test file system in the specified path for manual inspection")
@@ -45,7 +43,7 @@ func TestUnsquashfs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ff, err := w.Root.File("hellö wörld", time.Now(), unix.S_IRUSR|unix.S_IRGRP|unix.S_IROTH)
+	ff, err := w.Root.File("hellö wörld", time.Now(), 0o444 /* u=r,g=r,o=r */)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +54,7 @@ func TestUnsquashfs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ff, err = w.Root.File("leer", time.Now(), unix.S_IRUSR|unix.S_IRGRP|unix.S_IROTH)
+	ff, err = w.Root.File("leer", time.Now(), 0o444 /* u=r,g=r,o=r */)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,9 +62,7 @@ func TestUnsquashfs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ff, err = w.Root.File("second file", time.Now(), unix.S_IRUSR|unix.S_IXUSR|
-		unix.S_IRGRP|unix.S_IXGRP|
-		unix.S_IROTH|unix.S_IXOTH)
+	ff, err = w.Root.File("second file", time.Now(), 0o555 /* u=rx,g=rx,o=rx */)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,14 +73,14 @@ func TestUnsquashfs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := w.Root.Symlink("second file", "second link", time.Now(), unix.S_IRUSR|unix.S_IRGRP|unix.S_IROTH); err != nil {
+	if err := w.Root.Symlink("second file", "second link", time.Now(), 0o444 /* u=r,g=r,o=r */); err != nil {
 		t.Fatal(err)
 	}
 
 	subdir := w.Root.Directory("subdir", time.Now())
 
 	subsubdir := subdir.Directory("deep", time.Now())
-	ff, err = subsubdir.File("yo", time.Now(), unix.S_IRUSR|unix.S_IRGRP|unix.S_IROTH)
+	ff, err = subsubdir.File("yo", time.Now(), 0o444 /* u=r,g=r,o=r */)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +96,7 @@ func TestUnsquashfs(t *testing.T) {
 
 	// TODO: write another file in subdir now, will result in invalid parent inode
 
-	ff, err = subdir.File("third file (in subdir)", time.Now(), unix.S_IRUSR|unix.S_IRGRP|unix.S_IROTH)
+	ff, err = subdir.File("third file (in subdir)", time.Now(), 0o444 /* u=r,g=r,o=r */)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,9 +110,7 @@ func TestUnsquashfs(t *testing.T) {
 	if err := subdir.Flush(); err != nil {
 		t.Fatal(err)
 	}
-	ff, err = w.Root.File("testbin", time.Now(), unix.S_IRUSR|unix.S_IXUSR|
-		unix.S_IRGRP|unix.S_IXGRP|
-		unix.S_IROTH|unix.S_IXOTH)
+	ff, err = w.Root.File("testbin", time.Now(), 0o555 /* u=rx,g=rx,o=rx */)
 	if err != nil {
 		t.Fatal(err)
 	}
