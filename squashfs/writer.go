@@ -18,8 +18,6 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-
-	"golang.org/x/sys/unix"
 )
 
 // inode contains a block number + offset within that block.
@@ -92,6 +90,15 @@ type inodeHeader struct {
 	Mtime       int32
 	InodeNumber uint32
 }
+
+/*
+modeRX is:
+
+	unix.S_IRUSR|unix.S_IXUSR|
+	unix.S_IRGRP|unix.S_IXGRP|
+	unix.S_IROTH|unix.S_IXOTH
+*/
+const modeRX = 0o555 /* u=rx,g=rx,o=rx */
 
 // fileType
 type regInodeHeader struct {
@@ -462,10 +469,8 @@ func (d *Directory) Flush() error {
 		parentInodeOffset = (2 + 2 + 2 + 2 + 4 + 4) + 4 + 4 + 4
 		if err := binary.Write(&d.w.inodeBuf, binary.LittleEndian, ldirInodeHeader{
 			inodeHeader: inodeHeader{
-				InodeType: ldirType,
-				Mode: unix.S_IRUSR | unix.S_IXUSR |
-					unix.S_IRGRP | unix.S_IXGRP |
-					unix.S_IROTH | unix.S_IXOTH,
+				InodeType:   ldirType,
+				Mode:        modeRX,
 				Uid:         0,
 				Gid:         0,
 				Mtime:       int32(d.modTime.Unix()),
@@ -486,10 +491,8 @@ func (d *Directory) Flush() error {
 		parentInodeOffset = (2 + 2 + 2 + 2 + 4 + 4) + 4 + 4 + 2 + 2
 		if err := binary.Write(&d.w.inodeBuf, binary.LittleEndian, dirInodeHeader{
 			inodeHeader: inodeHeader{
-				InodeType: dirType,
-				Mode: unix.S_IRUSR | unix.S_IXUSR |
-					unix.S_IRGRP | unix.S_IXGRP |
-					unix.S_IROTH | unix.S_IXOTH,
+				InodeType:   dirType,
+				Mode:        modeRX,
 				Uid:         0,
 				Gid:         0,
 				Mtime:       int32(d.modTime.Unix()),
