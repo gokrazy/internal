@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -211,6 +212,9 @@ type Struct struct {
 		Path         string
 		LastModified time.Time
 	} `json:"-"` // omit from JSON
+
+	// this is only needed to detect if the config file is encrypted with sops.
+	Sops *struct{} `json:"sops,omitempty"`
 }
 
 // NewStruct returns a config.Struct that was not loaded from a file, but
@@ -335,6 +339,19 @@ func ReadFromFile(fn string) (*Struct, error) {
 	if err := json.Unmarshal(b, &cfg); err != nil {
 		return nil, fmt.Errorf("decoding %s: %v", fn, err)
 	}
+
+	if cfg.Sops != nil {
+		cmd := exec.Command("sops", "decrypt", fn)
+		output, err := cmd.Output()
+		if err != nil {
+			return nil, fmt.Errorf("sops decrypting %s: %w", fn, err)
+		}
+		cfg = Struct{}
+		if err := json.Unmarshal(output, &cfg); err != nil {
+			return nil, fmt.Errorf("decoding decrypted %s: %w", fn, err)
+		}
+	}
+
 	if err := validate(&cfg); err != nil {
 		return nil, err
 	}
