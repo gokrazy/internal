@@ -152,6 +152,9 @@ type PackageConfig struct {
 	// ExtraFileContents maps from root file system destination path to the
 	// plain text contents of the file.
 	ExtraFileContents map[string]string `json:",omitempty"`
+
+	// Basename overrides the basename of the package.
+	Basename string `json:",omitempty"`
 }
 
 // MountDevice instructs gokrazy to mount the specified source on the specified
