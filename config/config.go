@@ -115,6 +115,10 @@ func (u *UpdateStruct) WithFallbackToHostSpecific(host string) (*UpdateStruct, e
 }
 
 type PackageConfig struct {
+	// --------------------------------------------------------------------------------
+	// build time package configuration
+	// --------------------------------------------------------------------------------
+
 	// GoBuildFlags will be passed to “go build” as extra arguments.
 	//
 	// To pass build tags, do not use -tags=mycustomtag; instead set the
@@ -123,22 +127,6 @@ type PackageConfig struct {
 
 	// GoBuildTags will be added to the list of gokrazy default build tags.
 	GoBuildTags []string `json:",omitempty"`
-
-	// Environment contains key=value pairs, like in Go’s os.Environ().
-	Environment []string `json:",omitempty"`
-
-	// CommandLineFlags will be set when starting the program.
-	CommandLineFlags []string `json:",omitempty"`
-
-	// DontStart makes the gokrazy init not start this program
-	// automatically. Users can still start it manually via the web interface,
-	// or interactively via breakglass.
-	DontStart bool `json:",omitempty"`
-
-	// WaitForClock makes the gokrazy init wait for clock synchronization before
-	// starting the program. This is useful when modifying the program source to
-	// call gokrazy.WaitForClock() is inconvenient.
-	WaitForClock bool `json:",omitempty"`
 
 	// ExtraFilePaths maps from root file system destination path to a relative
 	// or absolute path on the host on which the packer is running.
@@ -155,6 +143,26 @@ type PackageConfig struct {
 
 	// Basename overrides the basename of the package.
 	Basename string `json:",omitempty"`
+
+	// --------------------------------------------------------------------------------
+	// run time package configuration
+	// --------------------------------------------------------------------------------
+
+	// Environment contains key=value pairs, like in Go’s os.Environ().
+	Environment []string `json:",omitempty"`
+
+	// CommandLineFlags will be set when starting the program.
+	CommandLineFlags []string `json:",omitempty"`
+
+	// DontStart makes the gokrazy init not start this program
+	// automatically. Users can still start it manually via the web interface,
+	// or interactively via breakglass.
+	DontStart bool `json:",omitempty"`
+
+	// WaitForClock makes the gokrazy init wait for clock synchronization before
+	// starting the program. This is useful when modifying the program source to
+	// call gokrazy.WaitForClock() is inconvenient.
+	WaitForClock bool `json:",omitempty"`
 }
 
 // MountDevice instructs gokrazy to mount the specified source on the specified
