@@ -119,6 +119,11 @@ type PackageConfig struct {
 	// build time package configuration
 	// --------------------------------------------------------------------------------
 
+	// GoBuildEnvironment contains key=value pairs, like in Go’s os.Environ(),
+	// that will be applied when running “go build”. In contrast to the
+	// Struct.Environment field, this setting is specific to a package.
+	GoBuildEnvironment []string `json:",omitempty"`
+
 	// GoBuildFlags will be passed to “go build” as extra arguments.
 	//
 	// To pass build tags, do not use -tags=mycustomtag; instead set the
