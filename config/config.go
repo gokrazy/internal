@@ -211,6 +211,10 @@ type Struct struct {
 	FirmwarePackage *string   `json:",omitempty"` // -firmware_package
 	EEPROMPackage   *string   `json:",omitempty"` // -eeprom_package
 
+	// extra arguments to append to the kernel command line (space separated):
+	// https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html
+	KernelExtraArgs []string `json:",omitempty"`
+
 	// extra lines to append to the config.txt file on the boot partition which
 	// is read by the Raspberry Pi bootloader:
 	// https://www.raspberrypi.com/documentation/computers/config_txt.html
