@@ -60,6 +60,18 @@ var (
 			BootPartitionStartLBA: 32768, // 16MiB from start of disk
 			Slug:                  "rock64",
 		},
+		"FriendlyElec NanoPi Neo": {
+			// https://linux-sunxi.org/Bootable_SD_card
+			MBROnlyWithoutGPT: true,
+			RootDeviceFiles: []RootFile{
+				// u-boot-sunxi-with-spl.bin is an überpackage that include TPL, SPL, U-Boot and u-boot.dtb.
+				// u-boot can build it as a single file with `make nanopi_neo_defconfig && make u-boot-sunxi-with-spl.bin`
+				// and its easier to work with instead of dealing with separate files.
+				{"u-boot-sunxi-with-spl.bin", 16 * sectorSize, 2032 * sectorSize}, // sectors 16 - 2048
+			},
+			BootPartitionStartLBA: 2048, // 1MiB from start of disk
+			Slug:                  "nanopi_neo",
+		},
 	}
 )
 
