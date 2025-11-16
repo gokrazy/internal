@@ -220,6 +220,11 @@ type Struct struct {
 	// https://www.raspberrypi.com/documentation/computers/config_txt.html
 	BootloaderExtraLines []string `json:",omitempty"`
 
+	// extra lines to append to the bootconf.txt EEPROM section which is read by
+	// the Raspberry Pi bootloader:
+	// https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#raspberry-pi-bootloader-configuration
+	BootloaderExtraEEPROM []string `json:",omitempty"`
+
 	MountDevices []MountDevice `json:",omitempty"`
 
 	// Do not set these manually in config.json, these fields only exist so that
