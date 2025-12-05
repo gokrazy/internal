@@ -10,7 +10,7 @@ import (
 	"github.com/gokrazy/internal/updateflag"
 )
 
-func For(cfg *config.Struct) (_ *http.Client, foundMatchingCertificate bool, updateBaseURL *url.URL, _ error) {
+func For(updateVal updateflag.Value, cfg *config.Struct) (_ *http.Client, foundMatchingCertificate bool, updateBaseURL *url.URL, _ error) {
 	schema := "http"
 	certPath, _, err := tlsflag.CertificatePathsFor(cfg.Hostname)
 	if err != nil {
@@ -37,7 +37,7 @@ func For(cfg *config.Struct) (_ *http.Client, foundMatchingCertificate bool, upd
 		update.Hostname = cfg.Hostname
 	}
 
-	updateBaseURL, err = updateflag.BaseURL(update.HTTPPort, update.HTTPSPort, schema, update.Hostname, update.HTTPPassword)
+	updateBaseURL, err = updateVal.BaseURL(update.HTTPPort, update.HTTPSPort, schema, update.Hostname, update.HTTPPassword)
 	if err != nil {
 		return nil, false, nil, err
 	}
