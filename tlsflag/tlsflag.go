@@ -1,7 +1,6 @@
 package tlsflag
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,21 +13,6 @@ var (
 	useTLS   string
 	insecure bool
 )
-
-func RegisterFlags(fs *flag.FlagSet) {
-	fs.StringVar(&useTLS,
-		"tls",
-		"",
-		`TLS certificate for the web interface (-tls=<certificate or full chain path>,<private key path>).
-Use -tls=self-signed to generate a self-signed RSA4096 certificate using the hostname specified with -hostname. In this case, the certificate and key will be placed in your local config folder (on Linux: ~/.config/gokrazy/<hostname>/).
-WARNING: When reusing a hostname, no new certificate will be generated and the stored one will be used.
-When updating a running instance, the specified certificate will be used to verify the connection. Otherwise the updater will load the hostname-specific certificate from your local config folder in addition to the system trust store.
-You can also create your own certificate-key-pair (e.g. by using https://github.com/FiloSottile/mkcert) and place them into your local config folder.`)
-
-	fs.BoolVar(&insecure, "insecure",
-		false,
-		"Ignore TLS stripping detection.")
-}
 
 func Insecure() bool {
 	return insecure

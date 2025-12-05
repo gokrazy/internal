@@ -1,32 +1,11 @@
 package updateflag
 
 import (
-	"flag"
 	"net/url"
-	"os"
 	"strings"
-
-	"github.com/spf13/pflag"
 )
 
 var update string
-
-func registerFlags(fs interface {
-	StringVar(*string, string, string, string)
-}, updateFlagName string) {
-	fs.StringVar(&update,
-		updateFlagName,
-		os.Getenv("GOKRAZY_UPDATE"),
-		`URL of a gokrazy installation (e.g. http://gokrazy:mypassword@myhostname/) to work with. The special value "yes" uses the stored password and -hostname value to construct the URL`)
-}
-
-func RegisterFlags(fs *flag.FlagSet, updateFlagName string) {
-	registerFlags(fs, updateFlagName)
-}
-
-func RegisterPflags(fs *pflag.FlagSet, updateFlagName string) {
-	registerFlags(fs, updateFlagName)
-}
 
 func GetUpdateTarget(hostname string) (defaultPassword, updateHostname string) {
 	if update == "" {
