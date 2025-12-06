@@ -5,26 +5,6 @@ import (
 	"strings"
 )
 
-var update string
-
-func NewInstallation() bool {
-	return update == ""
-}
-
-func SetUpdate(u string) { update = u }
-
-func GetUpdate() string { return update }
-
-// Deprecated: use [Value.GetUpdateTarget]
-func GetUpdateTarget(hostname string) (defaultPassword, updateHostname string) {
-	return Value{update}.GetUpdateTarget(hostname)
-}
-
-// Deprecated: use [Value.BaseURL]
-func BaseURL(httpPort, httpsPort, schema, hostname, pw string) (*url.URL, error) {
-	return Value{update}.BaseURL(httpPort, httpsPort, schema, hostname, pw)
-}
-
 type Value struct {
 	Update string
 }

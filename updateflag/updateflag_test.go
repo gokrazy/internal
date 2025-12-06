@@ -47,8 +47,9 @@ func TestBaseURL(t *testing.T) {
 		},
 	} {
 		t.Run(tt.desc, func(t *testing.T) {
-			updateflag.SetUpdate("yes")
-			got, err := updateflag.BaseURL(tt.HTTPPort, tt.HTTPSPort, tt.Schema, tt.Hostname, tt.Password)
+			got, err := updateflag.Value{
+				Update: "yes",
+			}.BaseURL(tt.HTTPPort, tt.HTTPSPort, tt.Schema, tt.Hostname, tt.Password)
 			if err != nil {
 				t.Fatal(err)
 			}
