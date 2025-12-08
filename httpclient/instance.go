@@ -12,7 +12,7 @@ import (
 
 func For(updateVal updateflag.Value, cfg *config.Struct) (_ *http.Client, foundMatchingCertificate bool, updateBaseURL *url.URL, _ error) {
 	schema := "http"
-	certPath, _, err := tlsflag.CertificatePathsFor(cfg.Hostname)
+	certPath, _, err := tlsflag.CertificatePathsFor(cfg.Update.UseTLS, cfg.Hostname)
 	if err != nil {
 		return nil, false, nil, err
 	}
@@ -42,7 +42,7 @@ func For(updateVal updateflag.Value, cfg *config.Struct) (_ *http.Client, foundM
 		return nil, false, nil, err
 	}
 
-	hc, fmc, err := GetTLSHttpClientByTLSFlag(tlsflag.GetUseTLS(), tlsflag.GetInsecure(), updateBaseURL)
+	hc, fmc, err := GetTLSHttpClientByTLSFlag(update.UseTLS, cfg.InternalCompatibilityFlags.Insecure, updateBaseURL)
 	if err != nil {
 		return nil, false, nil, fmt.Errorf("getting http client by tls flag: %v", err)
 	}

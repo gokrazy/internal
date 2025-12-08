@@ -9,15 +9,6 @@ import (
 	"github.com/gokrazy/internal/config"
 )
 
-var (
-	useTLS   string
-	insecure bool
-)
-
-func Insecure() bool {
-	return insecure
-}
-
 type ErrNotYetCreated struct {
 	HostConfigPath string
 	CertPath       string
@@ -28,7 +19,7 @@ func (e *ErrNotYetCreated) Error() string {
 	return "self-signed certificate not yet created"
 }
 
-func CertificatePathsFor(hostname string) (certPath string, keyPath string, _ error) {
+func CertificatePathsFor(useTLS, hostname string) (certPath string, keyPath string, _ error) {
 	hostConfigPath := config.HostnameSpecific(hostname)
 	certPath = filepath.Join(string(hostConfigPath), "cert.pem")
 	keyPath = filepath.Join(string(hostConfigPath), "key.pem")
@@ -79,11 +70,3 @@ func CertificatePathsFor(hostname string) (certPath string, keyPath string, _ er
 	}
 	return certPath, keyPath, nil
 }
-
-func GetUseTLS() string { return useTLS }
-
-func SetUseTLS(s string) { useTLS = s }
-
-func GetInsecure() bool { return insecure }
-
-func SetInsecure(b bool) { insecure = b }
