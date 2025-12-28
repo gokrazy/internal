@@ -43,7 +43,7 @@ func TestUnsquashfs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ff, err := w.Root.File("hellö wörld", time.Now(), 0o444 /* u=r,g=r,o=r */)
+	ff, err := w.Root.File("hellö wörld", time.Now(), 0o444 /* u=r,g=r,o=r */, map[string][]byte{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +54,7 @@ func TestUnsquashfs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ff, err = w.Root.File("leer", time.Now(), 0o444 /* u=r,g=r,o=r */)
+	ff, err = w.Root.File("leer", time.Now(), 0o444 /* u=r,g=r,o=r */, map[string][]byte{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +62,7 @@ func TestUnsquashfs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ff, err = w.Root.File("second file", time.Now(), 0o555 /* u=rx,g=rx,o=rx */)
+	ff, err = w.Root.File("second file", time.Now(), 0o555 /* u=rx,g=rx,o=rx */, map[string][]byte{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +80,7 @@ func TestUnsquashfs(t *testing.T) {
 	subdir := w.Root.Directory("subdir", time.Now())
 
 	subsubdir := subdir.Directory("deep", time.Now())
-	ff, err = subsubdir.File("yo", time.Now(), 0o444 /* u=r,g=r,o=r */)
+	ff, err = subsubdir.File("yo", time.Now(), 0o444 /* u=r,g=r,o=r */, map[string][]byte{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +96,7 @@ func TestUnsquashfs(t *testing.T) {
 
 	// TODO: write another file in subdir now, will result in invalid parent inode
 
-	ff, err = subdir.File("third file (in subdir)", time.Now(), 0o444 /* u=r,g=r,o=r */)
+	ff, err = subdir.File("third file (in subdir)", time.Now(), 0o444 /* u=r,g=r,o=r */, map[string][]byte{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +110,7 @@ func TestUnsquashfs(t *testing.T) {
 	if err := subdir.Flush(); err != nil {
 		t.Fatal(err)
 	}
-	ff, err = w.Root.File("testbin", time.Now(), 0o555 /* u=rx,g=rx,o=rx */)
+	ff, err = w.Root.File("testbin", time.Now(), 0o555 /* u=rx,g=rx,o=rx */, map[string][]byte{})
 	if err != nil {
 		t.Fatal(err)
 	}
