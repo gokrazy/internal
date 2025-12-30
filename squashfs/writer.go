@@ -12,11 +12,15 @@ package squashfs
 
 import (
 	"bytes"
+	"cmp"
 	"compress/zlib"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"time"
 )
 
@@ -115,6 +119,24 @@ type regInodeHeader struct {
 	// Followed by a uint32 array of compressed block sizes.
 }
 
+// extFileType
+type extInodeHeader struct {
+	inodeHeader
+
+	// full byte offset from the start of the file system, e.g. 96 for first
+	// file contents. Not using fragments limits us to 2^32-1-96 (≈ 4GiB) bytes
+	// of file contents.
+	StartBlock uint64
+	FileSize   uint64
+	Sparse     uint64
+	Links      uint32
+	Fragment   uint32
+	Offset     uint32
+	xattr      uint32
+
+	// Followed by a uint32 array of compressed block sizes.
+}
+
 // symlinkType
 type symlinkInodeHeader struct {
 	inodeHeader
@@ -179,6 +201,24 @@ type dirEntry struct {
 	// Followed by a byte array of Size bytes.
 }
 
+type xattr struct {
+	Type uint16
+	// KeySize uint16
+	Key string
+	// ValueSize uint16
+	Value []byte
+}
+
+func (x xattr) Equals(xattr xattr) bool {
+	return x.Type == xattr.Type && x.Key == xattr.Key && bytes.Equal(x.Value, xattr.Value)
+}
+
+type xattrOffsets struct {
+	Offset uint64 // Stored similar to an Inode
+	Count  uint32
+	Size   uint32
+}
+
 func writeIdTable(w io.WriteSeeker, ids []uint32) (start int64, err error) {
 	metaOff, err := w.Seek(0, io.SeekCurrent)
 	if err != nil {
@@ -200,6 +240,119 @@ func writeIdTable(w io.WriteSeeker, ids []uint32) (start int64, err error) {
 		return 0, err
 	}
 	return off, binary.Write(w, binary.LittleEndian, metaOff)
+}
+
+func writeXattr(w io.Writer, xattr xattr) error {
+	if err := binary.Write(w, binary.LittleEndian, xattr.Type); err != nil {
+		return err
+	}
+	if err := binary.Write(w, binary.LittleEndian, uint16(len(xattr.Key))); err != nil {
+		return err
+	}
+	if err := binary.Write(w, binary.LittleEndian, []byte(xattr.Key)); err != nil {
+		return err
+	}
+	if err := binary.Write(w, binary.LittleEndian, uint32(len(xattr.Value))); err != nil {
+		return err
+	}
+	if err := binary.Write(w, binary.LittleEndian, xattr.Value); err != nil {
+		return err
+	}
+	return nil
+}
+
+func writeXattrTable(w io.WriteSeeker, xattrGroups [][]xattr) ([]xattrOffsets, error) {
+	var (
+		buf          bytes.Buffer
+		err          error
+		groupOffsets []xattrOffsets
+	)
+	for _, xattrs := range xattrGroups {
+		start := buf.Len()
+		for _, xattr := range xattrs {
+			if err = writeXattr(&buf, xattr); err != nil {
+				return []xattrOffsets{}, err
+			}
+		}
+		groupOffsets = append(groupOffsets, xattrOffsets{
+			Offset: uint64(0<<16 | start), // We only write one metadata block so index is always 0
+			Count:  uint32(len(xattrs)),
+			Size:   uint32(buf.Len() - start),
+		})
+	}
+
+	if buf.Len() > metadataBlockSize {
+		return []xattrOffsets{}, fmt.Errorf("too many xattrs defined")
+	}
+
+	if err := binary.Write(w, binary.LittleEndian, uint16(buf.Len())|0x8000); err != nil {
+		return []xattrOffsets{}, err
+	}
+	if _, err := io.Copy(w, &buf); err != nil {
+		return []xattrOffsets{}, err
+	}
+	return groupOffsets, nil
+}
+
+func writeXattrIdTable(w io.WriteSeeker, xattrGroups [][]xattr) (start int64, err error) {
+	if len(xattrGroups) == 0 {
+		// Sanity check as the linux kernel would not load the filesystem if there isn't a value here
+		return 0, fmt.Errorf("xattrGroups must have atleast one value")
+	}
+	kvOff, err := w.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return 0, err
+	}
+	groupOffsets, err := writeXattrTable(w, xattrGroups)
+	if err != nil {
+		return 0, err
+	}
+	metaOff, err := w.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return 0, err
+	}
+
+	var buf bytes.Buffer
+	if err := binary.Write(&buf, binary.LittleEndian, groupOffsets); err != nil {
+		return 0, err
+	}
+
+	if buf.Len() > metadataBlockSize {
+		return 0, fmt.Errorf("too many xattrs defined")
+	}
+
+	if err := binary.Write(w, binary.LittleEndian, uint16(buf.Len())|0x8000); err != nil {
+		return 0, err
+	}
+	if _, err := io.Copy(w, &buf); err != nil {
+		return 0, err
+	}
+	off, err := w.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return 0, err
+	}
+
+	err = binary.Write(w, binary.LittleEndian, uint64(kvOff))
+	if err != nil {
+		return 0, err
+	}
+
+	err = binary.Write(w, binary.LittleEndian, uint32(len(xattrGroups)))
+	if err != nil {
+		return 0, err
+	}
+
+	err = binary.Write(w, binary.LittleEndian, uint32(0))
+	if err != nil {
+		return 0, err
+	}
+
+	err = binary.Write(w, binary.LittleEndian, uint64(metaOff))
+	if err != nil {
+		return 0, err
+	}
+
+	return off, nil
 }
 
 type fullDirEntry struct {
@@ -225,9 +378,10 @@ type Writer struct {
 
 	w io.WriteSeeker
 
-	sb       superblock
-	inodeBuf bytes.Buffer
-	dirBuf   bytes.Buffer
+	sb          superblock
+	inodeBuf    bytes.Buffer
+	dirBuf      bytes.Buffer
+	xattrGroups [][]xattr
 
 	writeInodeNumTo map[string][]int64
 }
@@ -325,6 +479,9 @@ type file struct {
 	modTime time.Time
 	mode    os.FileMode
 
+	// xattrs list of xattrs to attach to this file
+	xattrs []xattr
+
 	// buf accumulates at least dataBlockSize bytes, at which point a new block
 	// is being written.
 	buf bytes.Buffer
@@ -352,10 +509,35 @@ func (d *Directory) Directory(name string, modTime time.Time) *Directory {
 
 // File creates a file with the specified name, modTime and mode. The returned
 // io.WriterCloser must be closed after writing the file.
-func (d *Directory) File(name string, modTime time.Time, mode os.FileMode) (io.WriteCloser, error) {
+func (d *Directory) File(name string, modTime time.Time, mode os.FileMode, xattrs map[string][]byte) (io.WriteCloser, error) {
 	off, err := d.w.w.Seek(0, io.SeekCurrent)
 	if err != nil {
 		return nil, err
+	}
+	var xattrlist []xattr
+	if len(xattrs) > 0 {
+		for key, value := range xattrs {
+			var (
+				keyType uint16
+			)
+
+			keys := strings.SplitN(key, ".", 2)
+			switch keys[0] {
+			case "user":
+				keyType = 0
+			case "trusted":
+				keyType = 1
+			case "security":
+				keyType = 2
+			default:
+				return nil, fmt.Errorf("Invalid xattr key: %s, key must start with security, trusted or user", key)
+			}
+			xattrlist = append(xattrlist, xattr{
+				Type:  keyType,
+				Key:   keys[1],
+				Value: value,
+			})
+		}
 	}
 
 	// zlib.BestSpeed results in only a 2x slow-down over no compression
@@ -374,6 +556,7 @@ func (d *Directory) File(name string, modTime time.Time, mode os.FileMode) (io.W
 		mode:       mode,
 		compBuf:    bytes.NewBuffer(make([]byte, dataBlockSize)),
 		zlibWriter: zw,
+		xattrs:     xattrlist,
 	}, nil
 }
 
@@ -605,22 +788,44 @@ func (f *file) Close() error {
 
 	startBlock := f.w.inodeBuf.Len() / metadataBlockSize
 	offset := f.w.inodeBuf.Len() - startBlock*metadataBlockSize
-
-	if err := binary.Write(&f.w.inodeBuf, binary.LittleEndian, regInodeHeader{
-		inodeHeader: inodeHeader{
-			InodeType:   fileType,
-			Mode:        uint16(f.mode),
-			Uid:         0,
-			Gid:         0,
-			Mtime:       int32(f.modTime.Unix()),
-			InodeNumber: f.w.sb.Inodes + 1,
-		},
-		StartBlock: uint32(f.off), // TODO(later): check for overflow
-		Fragment:   invalidFragment,
-		Offset:     0,
-		FileSize:   f.size,
-	}); err != nil {
-		return err
+	if len(f.xattrs) > 0 {
+		extinode := extInodeHeader{
+			inodeHeader: inodeHeader{
+				InodeType:   lregType,
+				Mode:        uint16(f.mode),
+				Uid:         0,
+				Gid:         0,
+				Mtime:       int32(f.modTime.Unix()),
+				InodeNumber: f.w.sb.Inodes + 1,
+			},
+			StartBlock: uint64(f.off), // TODO(later): check for overflow
+			FileSize:   uint64(f.size),
+			Sparse:     0,
+			Links:      1, // We don't support hardlinks at this time
+			Fragment:   invalidFragment,
+			Offset:     0,
+			xattr:      f.w.addXattrs(f.xattrs),
+		}
+		if err := binary.Write(&f.w.inodeBuf, binary.LittleEndian, extinode); err != nil {
+			return err
+		}
+	} else {
+		if err := binary.Write(&f.w.inodeBuf, binary.LittleEndian, regInodeHeader{
+			inodeHeader: inodeHeader{
+				InodeType:   fileType,
+				Mode:        uint16(f.mode),
+				Uid:         0,
+				Gid:         0,
+				Mtime:       int32(f.modTime.Unix()),
+				InodeNumber: f.w.sb.Inodes + 1,
+			},
+			StartBlock: uint32(f.off), // TODO(later): check for overflow
+			Fragment:   invalidFragment,
+			Offset:     0,
+			FileSize:   f.size,
+		}); err != nil {
+			return err
+		}
 	}
 
 	if err := binary.Write(&f.w.inodeBuf, binary.LittleEndian, f.blocksizes); err != nil {
@@ -711,8 +916,14 @@ func (w *Writer) Flush() error {
 	}
 	w.sb.IdTableStart = idTableStart
 
-	// (9) xattr table omitted
-
+	// (9) xattr table must be omitted if there are no xattrs
+	if len(w.xattrGroups) != 0 {
+		xattrIdTableStart, err := writeXattrIdTable(w.w, w.xattrGroups)
+		if err != nil {
+			return err
+		}
+		w.sb.XattrIdTableStart = xattrIdTableStart
+	}
 	off, err = w.w.Seek(0, io.SeekCurrent)
 	if err != nil {
 		return err
@@ -733,4 +944,32 @@ func (w *Writer) Flush() error {
 	}
 
 	return binary.Write(w.w, binary.LittleEndian, &w.sb)
+}
+
+func xattrCompare(a xattr, b xattr) int {
+	return cmp.Or(
+		cmp.Compare(a.Type, b.Type),
+		cmp.Compare(a.Key, b.Key),
+		bytes.Compare(a.Value, b.Value),
+	)
+}
+
+func (w *Writer) addXattrs(xattrs []xattr) uint32 {
+	// Does trivial xattr de-duplication. More complicated de-duplication is possible if space is a concern
+	slices.SortFunc(xattrs, xattrCompare)
+xattrGroup:
+	for i, group := range w.xattrGroups {
+		if len(group) != len(xattrs) {
+			continue
+		}
+		for x, xattr := range xattrs {
+			if !xattr.Equals(group[x]) {
+				continue xattrGroup
+			}
+		}
+		return uint32(i)
+	}
+	i := len(w.xattrGroups)
+	w.xattrGroups = append(w.xattrGroups, xattrs)
+	return uint32(i)
 }
