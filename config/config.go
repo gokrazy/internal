@@ -168,6 +168,10 @@ type PackageConfig struct {
 	// starting the program. This is useful when modifying the program source to
 	// call gokrazy.WaitForClock() is inconvenient.
 	WaitForClock bool `json:",omitempty"`
+
+	// WaitFor makes the gokrazy init wait for the specified conditions before
+	// starting the program.
+	WaitFor []string `json:",omitempty"`
 }
 
 // MountDevice instructs gokrazy to mount the specified source on the specified
