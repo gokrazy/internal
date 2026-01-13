@@ -149,6 +149,8 @@ type PackageConfig struct {
 	// Basename overrides the basename of the package.
 	Basename string `json:",omitempty"`
 
+	Capabilities string `json:",omitempty"`
+
 	// --------------------------------------------------------------------------------
 	// run time package configuration
 	// --------------------------------------------------------------------------------
