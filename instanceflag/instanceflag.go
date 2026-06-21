@@ -10,30 +10,28 @@ import (
 	"github.com/spf13/pflag"
 )
 
-var (
-	parentDir = func() string {
-		def := os.Getenv("GOKRAZY_PARENT_DIR")
-		if def == "" {
-			homeDir, err := os.UserHomeDir()
-			if err != nil {
-				homeDir = fmt.Sprintf("os.UserHomeDir failed: %v", err)
-			}
-			def = filepath.Join(homeDir, "gokrazy")
+func parentDirDefault() string {
+	def := os.Getenv("GOKRAZY_PARENT_DIR")
+	if def == "" {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			homeDir = fmt.Sprintf("os.UserHomeDir failed: %v", err)
 		}
-		return def
-	}()
+		def = filepath.Join(homeDir, "gokrazy")
+	}
+	return def
+}
 
-	instance = func() string {
-		def := os.Getenv("GOKRAZY_INSTANCE")
-		if def == "" {
-			def = instanceFromPWD()
-		}
-		if def == "" {
-			def = "hello"
-		}
-		return def
-	}()
-)
+func instanceDefault() string {
+	def := os.Getenv("GOKRAZY_INSTANCE")
+	if def == "" {
+		def = instanceFromPWD()
+	}
+	if def == "" {
+		def = "hello"
+	}
+	return def
+}
 
 func instanceFromPWD() string {
 	wd, err := os.Getwd()
@@ -45,7 +43,7 @@ func instanceFromPWD() string {
 		return ""
 	}
 
-	parentAbs, err := filepath.Abs(parentDir)
+	parentAbs, err := filepath.Abs(global.Parent)
 	if err != nil {
 		return ""
 	}
@@ -64,44 +62,58 @@ func instanceFromPWD() string {
 	return instance
 }
 
-func RegisterPflags(fs *pflag.FlagSet) {
-	fs.StringVarP(&instance,
+// Flags contains command-line flag values related to the gokrazy instance.
+type Flags struct {
+	Name   string // --instance / -i
+	Parent string // --parent_dir
+}
+
+var global Flags
+
+func init() {
+	global.Parent = parentDirDefault()
+	global.Name = instanceDefault()
+}
+
+func RegisterPflags(fs *pflag.FlagSet) *Flags {
+	fs.StringVarP(&global.Name,
 		"instance",
 		"i",
-		instance,
+		instanceDefault(),
 		`instance, identified by hostname`)
 
-	fs.StringVar(&parentDir,
+	fs.StringVar(&global.Parent,
 		"parent_dir",
-		parentDir,
+		parentDirDefault(),
 		`parent directory: contains one subdirectory per instance`)
 
+	return &global
 }
 
 func SetInstance(i string) {
-	instance = i
+	global.Name = i
 }
 
 func SetParentDir(p string) {
-	parentDir = p
+	global.Parent = p
 }
 
 func Instance() string {
-	return instance
+	return global.Name
 }
 
 var parentDirOnce sync.Once
 
 func ParentDir() string {
 	parentDirOnce.Do(func() {
-		if !strings.Contains(parentDir, "./") &&
-			!strings.Contains(parentDir, "../") &&
-			!strings.Contains(parentDir, "/..") {
+		if !strings.Contains(global.Parent, "./") &&
+			!strings.Contains(global.Parent, "../") &&
+			!strings.Contains(global.Parent, "/..") {
 			return
 		}
-		if abs, err := filepath.Abs(parentDir); err == nil {
-			parentDir = abs
+		if abs, err := filepath.Abs(global.Parent); err == nil {
+			global.Parent = abs
 		}
 	})
-	return parentDir
+	return global.Parent
 }
