@@ -9,11 +9,8 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/gokrazy/internal/instanceflag"
 )
 
 // InternalCompatibilityFlags keep older gokr-packer behavior or user interface
@@ -326,19 +323,10 @@ func (i *InternalCompatibilityFlags) SudoOrDefault() string {
 	return i.Sudo
 }
 
-func InstancePath() string {
-	return filepath.Join(instanceflag.ParentDir(), instanceflag.Instance())
-}
-
-func InstanceConfigPath() string {
-	return filepath.Join(InstancePath(), "config.json")
-}
-
-// ApplyInstanceFlag reads the config from InstanceConfigPath(),
+// ApplyFromFile reads the config for instanceName from configJSON,
 // applies the configured environment and returns the config struct.
-func ApplyInstanceFlag() (*Struct, error) {
-	configJSON := InstanceConfigPath()
-	cfg, err := ReadFromFile(configJSON)
+func ApplyFromFile(configJSON, instanceName string) (*Struct, error) {
+	cfg, err := ReadFromFile(configJSON, instanceName)
 	if err != nil {
 		return nil, err
 	}
@@ -346,7 +334,7 @@ func ApplyInstanceFlag() (*Struct, error) {
 	return cfg, nil
 }
 
-func ReadFromFile(fn string) (*Struct, error) {
+func ReadFromFile(fn, instanceName string) (*Struct, error) {
 	f, err := os.Open(fn)
 	if err != nil {
 		return nil, err
@@ -373,7 +361,7 @@ func ReadFromFile(fn string) (*Struct, error) {
 	if cfg.InternalCompatibilityFlags == nil {
 		cfg.InternalCompatibilityFlags = &InternalCompatibilityFlags{}
 	}
-	cfg.Meta.Instance = instanceflag.Instance()
+	cfg.Meta.Instance = instanceName
 	cfg.Meta.Path = fn
 	cfg.Meta.LastModified = st.ModTime()
 	return &cfg, nil
