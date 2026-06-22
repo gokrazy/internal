@@ -68,6 +68,18 @@ type Flags struct {
 	Parent string // --parent_dir
 }
 
+// InstancePath returns the name of the directory
+// containing the gokrazy config.json,
+// e.g. /home/michael/gokrazy/scan2drive/config.json
+func (f *Flags) InstancePath() string {
+	return filepath.Join(f.Parent, f.Name)
+}
+
+// InstanceConfigPath returns the full path to config.json.
+func (f *Flags) InstanceConfigPath() string {
+	return filepath.Join(f.InstancePath(), "config.json")
+}
+
 var global Flags
 
 func init() {
