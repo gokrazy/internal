@@ -5,12 +5,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 
 	"github.com/spf13/pflag"
 )
 
-func parentDirDefault() string {
+// ParentDirDefault returns the default value for the --parent_dir flag,
+// i.e. $GOKRAZY_PARENT_DIR or os.UserHomeDir/gokrazy.
+func ParentDirDefault() string {
 	def := os.Getenv("GOKRAZY_PARENT_DIR")
 	if def == "" {
 		homeDir, err := os.UserHomeDir()
@@ -22,10 +23,10 @@ func parentDirDefault() string {
 	return def
 }
 
-func instanceDefault() string {
+func instanceDefault(parentDir string) string {
 	def := os.Getenv("GOKRAZY_INSTANCE")
 	if def == "" {
-		def = instanceFromPWD()
+		def = instanceFromPWD(parentDir)
 	}
 	if def == "" {
 		def = "hello"
@@ -33,7 +34,7 @@ func instanceDefault() string {
 	return def
 }
 
-func instanceFromPWD() string {
+func instanceFromPWD(parentDir string) string {
 	wd, err := os.Getwd()
 	if err != nil {
 		return ""
@@ -43,7 +44,7 @@ func instanceFromPWD() string {
 		return ""
 	}
 
-	parentAbs, err := filepath.Abs(global.Parent)
+	parentAbs, err := filepath.Abs(parentDir)
 	if err != nil {
 		return ""
 	}
@@ -80,52 +81,23 @@ func (f *Flags) InstanceConfigPath() string {
 	return filepath.Join(f.InstancePath(), "config.json")
 }
 
-var global Flags
-
-func init() {
-	global.Parent = parentDirDefault()
-	global.Name = instanceDefault()
-}
-
 func RegisterPflags(fs *pflag.FlagSet) *Flags {
-	fs.StringVarP(&global.Name,
+	parent := ParentDirDefault()
+	f := &Flags{
+		Parent: parent,
+		Name:   instanceDefault(parent),
+	}
+
+	fs.StringVarP(&f.Name,
 		"instance",
 		"i",
-		instanceDefault(),
+		f.Name,
 		`instance, identified by hostname`)
 
-	fs.StringVar(&global.Parent,
+	fs.StringVar(&f.Parent,
 		"parent_dir",
-		parentDirDefault(),
+		f.Parent,
 		`parent directory: contains one subdirectory per instance`)
 
-	return &global
-}
-
-func SetInstance(i string) {
-	global.Name = i
-}
-
-func SetParentDir(p string) {
-	global.Parent = p
-}
-
-func Instance() string {
-	return global.Name
-}
-
-var parentDirOnce sync.Once
-
-func ParentDir() string {
-	parentDirOnce.Do(func() {
-		if !strings.Contains(global.Parent, "./") &&
-			!strings.Contains(global.Parent, "../") &&
-			!strings.Contains(global.Parent, "/..") {
-			return
-		}
-		if abs, err := filepath.Abs(global.Parent); err == nil {
-			global.Parent = abs
-		}
-	})
-	return global.Parent
+	return f
 }
