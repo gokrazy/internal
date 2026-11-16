@@ -72,6 +72,17 @@ var (
 			BootPartitionStartLBA: 2048, // 1MiB from start of disk
 			Slug:                  "nanopi_neo",
 		},
+		"Lamobo R1": {
+			// https://linux-sunxi.org/Bootable_SD_card
+			MBROnlyWithoutGPT: true,
+			RootDeviceFiles: []RootFile{
+				// u-boot-sunxi-with-spl.bin is an überpackage that includes SPL and U-Boot.
+				// u-boot can build it as a single file with `make Lamobo_R1_defconfig && make u-boot-sunxi-with-spl.bin`
+				{"u-boot-sunxi-with-spl.bin", 16 * sectorSize, 2032 * sectorSize}, // sectors 16 - 2048
+			},
+			BootPartitionStartLBA: 2048, // 1MiB from start of disk
+			Slug:                  "bpi_r1",
+		},
 	}
 )
 
