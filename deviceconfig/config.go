@@ -72,6 +72,15 @@ var (
 			BootPartitionStartLBA: 2048, // 1MiB from start of disk
 			Slug:                  "nanopi_neo",
 		},
+		// Milk-V Duo (CV1800B / Sophgo SG2002, RISC-V)
+		// https://milkv.io/docs/duo/getting-started/boot
+		// BootROM reads MBR partition table, finds active FAT partition,
+		// then reads fip.bin as a regular file from the FAT filesystem.
+		"Milk-V Duo": {
+			MBROnlyWithoutGPT:     true,
+			BootPartitionStartLBA: 1, // BootROM expects FAT at LBA 1
+			Slug:                  "milkv_duo",
+		},
 	}
 )
 
